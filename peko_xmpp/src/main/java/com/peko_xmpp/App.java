@@ -22,11 +22,15 @@ import java.io.IOException;
 public class App extends Application {
 	private static AbstractXMPPConnection connection;
 	private String username;
+	private String password;
 
 	@Override
 	public void start(Stage stage) throws IOException {
 		stage.setTitle("XMPP Chat");
+		guiLoginScreen(stage);
+	}
 
+	private void guiLoginScreen(Stage stage) {
 		TextField field_username = new TextField();
 		field_username.setPromptText("Usuario");
 		field_username.setStyle("-fx-max-width: Infinity;");
@@ -59,6 +63,54 @@ public class App extends Application {
 
 		StackPane root = new StackPane();
 		root.getChildren().add(layout);
+
+		Scene scene = new Scene(root, 640, 480);
+		scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+
+		stage.setScene(scene);
+		stage.show();
+
+		button_signin.setOnAction(e -> {
+			username = field_username.getText();
+			password = field_password.getText();
+			guiHomeScreen(stage);
+		});
+	}
+
+	private void guiHomeScreen(Stage stage) {
+		Label label = new Label("Bienvenido " + username);
+
+		Button button_chat = new Button("Chatear");
+		button_chat.setStyle("-fx-max-width: Infinity;");
+		Button button_contacts = new Button("Mis Contactos");
+		button_contacts.setStyle("-fx-max-width: Infinity;");
+		Button button_account = new Button("Mi Cuenta");
+		button_account.setStyle("-fx-max-width: Infinity;");
+
+		VBox layout_main = new VBox(10);
+		layout_main.setAlignment(Pos.TOP_CENTER);
+
+		HBox layout_menu_a = new HBox(10);
+		layout_menu_a.setAlignment(Pos.CENTER);
+		layout_menu_a.getChildren().addAll(button_contacts, button_account);
+		layout_menu_a.setHgrow(button_contacts, Priority.ALWAYS);
+		layout_menu_a.setHgrow(button_account, Priority.ALWAYS);
+
+		VBox layout_menu = new VBox(10);
+		layout_menu.setAlignment(Pos.TOP_CENTER);
+		layout_menu.setSpacing(10);
+		layout_menu.setPadding(new Insets(10));
+		layout_menu.getChildren().addAll(label, button_chat, layout_menu_a);
+
+		VBox layout_container = new VBox(10);
+		layout_container.setAlignment(Pos.TOP_CENTER);
+		layout_container.getChildren().add(label);
+		layout_container.getChildren().add(layout_main);
+		layout_container.getChildren().add(layout_menu);
+		layout_container.setVgrow(layout_main, Priority.ALWAYS);
+
+		StackPane root = new StackPane();
+		root.getChildren().add(layout_container);
 
 		Scene scene = new Scene(root, 640, 480);
 		scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
