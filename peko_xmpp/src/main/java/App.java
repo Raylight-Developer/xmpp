@@ -1,7 +1,8 @@
-package com.peko_xmpp;
+
 
 // Java FX
 import javafx.application.Application;
+import javafx.collections.ObservableList;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.geometry.*;
@@ -20,9 +21,10 @@ import org.jxmpp.jid.*;
 import java.io.IOException;
 
 public class App extends Application {
-	private static AbstractXMPPConnection connection;
-	private String username;
-	private String password;
+	private static AbstractXMPPConnection xmpp_connection;
+	private static ObservableList<String> incoming_messages;
+	private String username = "21430";
+	private String password = "Test_123";
 
 	@Override
 	public void start(Stage stage) throws IOException {
@@ -48,12 +50,12 @@ public class App extends Application {
 		HBox layout_a = new HBox(10);
 		layout_a.setAlignment(Pos.CENTER);
 		layout_a.getChildren().addAll(field_username, button_signin);
-		layout_a.setHgrow(field_username, Priority.ALWAYS);
+		HBox.setHgrow(field_username, Priority.ALWAYS);
 
 		HBox layout_b = new HBox(10);
 		layout_b.setAlignment(Pos.CENTER);
 		layout_b.getChildren().addAll(field_password, button_signup);
-		layout_b.setHgrow(field_password, Priority.ALWAYS);
+		HBox.setHgrow(field_password, Priority.ALWAYS);
 
 		VBox layout = new VBox(10);
 		layout.setAlignment(Pos.TOP_CENTER);
@@ -71,6 +73,12 @@ public class App extends Application {
 		stage.show();
 
 		button_signin.setOnAction(e -> {
+			username = field_username.getText();
+			password = field_password.getText();
+			guiHomeScreen(stage);
+		});
+
+		button_signup.setOnAction(e -> {
 			username = field_username.getText();
 			password = field_password.getText();
 			guiHomeScreen(stage);
@@ -93,8 +101,8 @@ public class App extends Application {
 		HBox layout_menu_a = new HBox(10);
 		layout_menu_a.setAlignment(Pos.CENTER);
 		layout_menu_a.getChildren().addAll(button_contacts, button_account);
-		layout_menu_a.setHgrow(button_contacts, Priority.ALWAYS);
-		layout_menu_a.setHgrow(button_account, Priority.ALWAYS);
+		HBox.setHgrow(button_contacts, Priority.ALWAYS);
+		HBox.setHgrow(button_account, Priority.ALWAYS);
 
 		VBox layout_menu = new VBox(10);
 		layout_menu.setAlignment(Pos.TOP_CENTER);
@@ -107,7 +115,7 @@ public class App extends Application {
 		layout_container.getChildren().add(label);
 		layout_container.getChildren().add(layout_main);
 		layout_container.getChildren().add(layout_menu);
-		layout_container.setVgrow(layout_main, Priority.ALWAYS);
+		VBox.setVgrow(layout_main, Priority.ALWAYS);
 
 		StackPane root = new StackPane();
 		root.getChildren().add(layout_container);
@@ -118,6 +126,37 @@ public class App extends Application {
 		stage.setScene(scene);
 		stage.show();
 	}
+
+	public static void signUp() {
+	}
+
+	public static void signIn() {
+	}
+
+	public static void signOut() {
+	}
+
+	public static void sendMessage() {
+	}
+
+	public static void getMessages() {
+	}
+
+	public static void addContact() {
+	}
+
+	public static void getContacts() {
+	}
+
+	public static void getConnectedUsers() {
+	}
+
+	public static void sendFile() {
+	}
+
+	public static void receiveFile() {
+	}
+
 	public static void main(String[] args) {
 		launch(args);
 	}
