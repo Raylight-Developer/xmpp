@@ -29,20 +29,36 @@ public class App extends Application {
 
 		TextField field_username = new TextField();
 		field_username.setPromptText("Usuario");
+		field_username.setStyle("-fx-max-width: Infinity;");
 
 		PasswordField field_password = new PasswordField();
 		field_password.setPromptText("Contraseña");
+		field_password.setStyle("-fx-max-width: Infinity;");
 
 		Button button_signin = new Button("Iniciar sesión");
-		Button button_signup = new Button("Registrar nueva cuenta");
+		button_signin.setStyle("-fx-pref-width: 200px;");
 
-		VBox loginBox = new VBox(10);
-		loginBox.setAlignment(Pos.CENTER);
-		loginBox.setPadding(new Insets(40));
-		loginBox.getChildren().addAll(field_username, field_password, button_signin, button_signup);
+		Button button_signup = new Button("Registrar nueva cuenta");
+		button_signup.setStyle("-fx-pref-width: 200px;");
+
+		HBox layout_a = new HBox(10);
+		layout_a.setAlignment(Pos.CENTER);
+		layout_a.getChildren().addAll(field_username, button_signin);
+		layout_a.setHgrow(field_username, Priority.ALWAYS);
+
+		HBox layout_b = new HBox(10);
+		layout_b.setAlignment(Pos.CENTER);
+		layout_b.getChildren().addAll(field_password, button_signup);
+		layout_b.setHgrow(field_password, Priority.ALWAYS);
+
+		VBox layout = new VBox(10);
+		layout.setAlignment(Pos.TOP_CENTER);
+		layout.setSpacing(10);
+		layout.setPadding(new Insets(10));
+		layout.getChildren().addAll(layout_a, layout_b);
 
 		StackPane root = new StackPane();
-		root.getChildren().add(loginBox);
+		root.getChildren().add(layout);
 
 		Scene scene = new Scene(root, 640, 480);
 		scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
