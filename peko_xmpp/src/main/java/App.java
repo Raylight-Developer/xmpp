@@ -4,6 +4,7 @@
 import javafx.application.Application;
 import javafx.collections.ObservableList;
 import javafx.scene.control.*;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.layout.*;
 import javafx.geometry.*;
 import javafx.stage.*;
@@ -11,6 +12,11 @@ import javafx.scene.*;
 
 // Smack Lib
 import org.jivesoftware.smack.AbstractXMPPConnection;
+import org.jivesoftware.smack.util.dns.minidns.MiniDnsResolver;
+import org.jivesoftware.smackx.iqregister.AccountManager;
+import org.jivesoftware.smack.util.DNSUtil;
+import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
+import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 
 // XMPP Lib
 import org.jxmpp.jid.parts.*;
@@ -23,6 +29,7 @@ import java.io.IOException;
 public class App extends Application {
 	private static AbstractXMPPConnection xmpp_connection;
 	private static ObservableList<String> incoming_messages;
+	private static String domain = "alumchat.lol";
 	private String username = "21430";
 	private String password = "Test_123";
 
@@ -36,10 +43,12 @@ public class App extends Application {
 		TextField field_username = new TextField();
 		field_username.setPromptText("Usuario");
 		field_username.setStyle("-fx-max-width: Infinity;");
+		field_username.setText(username);
 
 		PasswordField field_password = new PasswordField();
 		field_password.setPromptText("Contraseña");
 		field_password.setStyle("-fx-max-width: Infinity;");
+		field_password.setText(password);
 
 		Button button_signin = new Button("Iniciar sesión");
 		button_signin.setStyle("-fx-pref-width: 200px;");
@@ -75,13 +84,31 @@ public class App extends Application {
 		button_signin.setOnAction(e -> {
 			username = field_username.getText();
 			password = field_password.getText();
-			guiHomeScreen(stage);
+			if (signIn(username, password)) {
+				guiHomeScreen(stage);
+			}
+			else {
+				Alert alert = new Alert(AlertType.WARNING);
+				alert.setTitle("Warning");
+				alert.setHeaderText("Error");
+				alert.setContentText("Login Failed.");
+				alert.showAndWait();
+			}
 		});
 
 		button_signup.setOnAction(e -> {
 			username = field_username.getText();
 			password = field_password.getText();
-			guiHomeScreen(stage);
+			if (signUp(username, password)) {
+				guiHomeScreen(stage);
+			}
+			else {
+				Alert alert = new Alert(AlertType.WARNING);
+				alert.setTitle("Warning");
+				alert.setHeaderText("Error");
+				alert.setContentText("Login Failed.");
+				alert.showAndWait();
+			}
 		});
 	}
 
@@ -127,22 +154,86 @@ public class App extends Application {
 		stage.show();
 	}
 
-	public static void signUp() {
+	public static boolean signUp(String username, String password) {
+		try {
+			DNSUtil.setDNSResolver(MiniDnsResolver.getInstance());
+			XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
+				.setSecurityMode(XMPPTCPConnectionConfiguration.SecurityMode.disabled)
+				.setXmppDomain(domain)
+				.setHost(domain)
+				.setPort(5222)
+				.build();
+			xmpp_connection = new XMPPTCPConnection(config);
+
+			try {
+				xmpp_connection.connect();
+				AccountManager accountManager = AccountManager.getInstance(xmpp_connection);
+				accountManager.sensitiveOperationOverInsecureConnection(true);
+
+				if (accountManager.supportsAccountCreation()) {
+					Localpart localpart = Localpart.from(username);
+					accountManager.createAccount(localpart, password);
+					System.out.println(username + " : Signed up");
+				} else {
+					System.out.println("Error registering : Server action not supported.");
+				}
+
+				System.out.println(username + " : Signed up");
+				return true;
+
+			} catch (IOException e) {
+				System.out.println("Error registering: " + e.getMessage());
+				e.printStackTrace();
+				return false;
+			}
+		} catch (Exception e) {
+			System.out.println("Error: " + e.getMessage());
+			e.printStackTrace();
+			return false;
+		}
 	}
 
-	public static void signIn() {
+	public static boolean signIn(String username, String password) {
+		try {
+			DNSUtil.setDNSResolver(MiniDnsResolver.getInstance());
+			XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
+				.setSecurityMode(XMPPTCPConnectionConfiguration.SecurityMode.disabled)
+				.setXmppDomain(domain)
+				.setHost(domain)
+				.setPort(5222)
+				.build();
+			xmpp_connection = new XMPPTCPConnection(config);
+
+			try {
+				xmpp_connection.connect();
+				xmpp_connection.login(username, password);
+				System.out.println(username + " : Logged in");
+				return true;
+
+			} catch (IOException e) {
+				System.out.println("Error loggin in: " + e.getMessage());
+				e.printStackTrace();
+				return false;
+			}
+		} catch (Exception e) {
+			System.out.println("Error: " + e.getMessage());
+			e.printStackTrace();
+			return false;
+		}
 	}
 
 	public static void signOut() {
 	}
 
-	public static void sendMessage() {
+	public static boolean sendMessage() {
+		return false;
 	}
 
 	public static void getMessages() {
 	}
 
-	public static void addContact() {
+	public static boolean addContact() {
+		return false;
 	}
 
 	public static void getContacts() {
@@ -151,10 +242,12 @@ public class App extends Application {
 	public static void getConnectedUsers() {
 	}
 
-	public static void sendFile() {
+	public static boolean sendFile() {
+		return false;
 	}
 
-	public static void receiveFile() {
+	public static boolean receiveFile() {
+		return false;
 	}
 
 	public static void main(String[] args) {
