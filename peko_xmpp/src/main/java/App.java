@@ -3,20 +3,23 @@
 // Java FX
 import javafx.application.Application;
 import javafx.collections.ObservableList;
-import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.geometry.*;
 import javafx.stage.*;
 import javafx.scene.*;
 
 // Smack Lib
-import org.jivesoftware.smack.AbstractXMPPConnection;
-import org.jivesoftware.smack.util.dns.minidns.MiniDnsResolver;
 import org.jivesoftware.smackx.iqregister.AccountManager;
+import org.jivesoftware.smack.AbstractXMPPConnection;
+import org.jivesoftware.smack.packet.Message;
+import org.jivesoftware.smack.util.dns.minidns.MiniDnsResolver;
 import org.jivesoftware.smack.util.DNSUtil;
-import org.jivesoftware.smack.tcp.XMPPTCPConnectionConfiguration;
-import org.jivesoftware.smack.tcp.XMPPTCPConnection;
+import org.jivesoftware.smack.packet.*;
+import org.jivesoftware.smack.roster.*;
+import org.jivesoftware.smack.chat2.*;
+import org.jivesoftware.smack.tcp.*;
 
 // XMPP Lib
 import org.jxmpp.jid.parts.*;
@@ -24,7 +27,8 @@ import org.jxmpp.jid.impl.*;
 import org.jxmpp.jid.*;
 
 // Java
-import java.io.IOException;
+import java.util.*;
+import java.io.*;
 
 public class App extends Application {
 	private static AbstractXMPPConnection xmpp_connection;
@@ -174,20 +178,22 @@ public class App extends Application {
 					Localpart localpart = Localpart.from(username);
 					accountManager.createAccount(localpart, password);
 					System.out.println(username + " : Signed up");
-				} else {
+					return true;
+				}
+				else {
 					System.out.println("Error registering : Server action not supported.");
+					return false;
 				}
 
-				System.out.println(username + " : Signed up");
-				return true;
-
-			} catch (IOException e) {
-				System.out.println("Error registering: " + e.getMessage());
+			}
+			catch (IOException e) {
+				System.out.println("Error registering " + username + "  |  " + e.getMessage());
 				e.printStackTrace();
 				return false;
 			}
-		} catch (Exception e) {
-			System.out.println("Error: " + e.getMessage());
+		}
+		catch (Exception e) {
+			System.out.println("Error connecting to server " + domain + "  |  " + e.getMessage());
 			e.printStackTrace();
 			return false;
 		}
@@ -210,13 +216,15 @@ public class App extends Application {
 				System.out.println(username + " : Logged in");
 				return true;
 
-			} catch (IOException e) {
-				System.out.println("Error loggin in: " + e.getMessage());
+			}
+			catch (IOException e) {
+				System.out.println("Error logging in " + username + "  |  " + e.getMessage());
 				e.printStackTrace();
 				return false;
 			}
-		} catch (Exception e) {
-			System.out.println("Error: " + e.getMessage());
+		}
+		catch (Exception e) {
+			System.out.println("Error connecting to server " + domain + "  |  " + e.getMessage());
 			e.printStackTrace();
 			return false;
 		}
@@ -225,29 +233,75 @@ public class App extends Application {
 	public static void signOut() {
 	}
 
-	public static boolean sendMessage() {
-		return false;
+	public static boolean sendMessage(String from_user, String to_user, String message_body) {
+		try {
+			ChatManager manager = ChatManager.getInstanceFor(xmpp_connection);
+			EntityBareJid jid = JidCreate.entityBareFrom(to_user);
+			Chat chat = manager.chatWith(jid);
+
+			Message message = new Message(jid, Message.Type.chat);
+			message.setBody(message_body);
+			chat.send(message);
+
+			System.out.println("Mensaje [ " + message_body + " ] enviado de " + from_user + " a " + to_user);
+			return true;
+		} catch (Exception e) {
+			System.out.println("Error al enviar mensaje a " + to_user + "  |  " + e.getMessage());
+			e.printStackTrace();
+			return false;
+		}
 	}
 
 	public static void getMessages() {
 	}
 
-	public static boolean addContact() {
-		return false;
+	public static boolean addContact(String user_jid) {
+		try {
+			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
+			Roster roster = Roster.getInstanceFor(xmpp_connection);
+			roster.createEntry(jid, user_jid, null);
+			System.out.println("Contacto agregado " + user_jid);
+			return true;
+		}
+		catch (Exception e) {
+			System.out.println("Error al agregar contacto " + user_jid + "  |  " + e.getMessage());
+			e.printStackTrace();
+			return false;
+		}
 	}
 
-	public static void getContacts() {
+	public static Collection<RosterEntry> getContacts() {
+		try {
+			Roster roster = Roster.getInstanceFor(xmpp_connection);
+			Collection<RosterEntry> contacts = roster.getEntries();
+			return contacts;
+		}
+		catch (Exception e) {
+			System.out.println("Error obteniendo contactos  |  " + e.getMessage());
+			e.printStackTrace();
+			return null;
+		}
 	}
 
-	public static void getConnectedUsers() {
+	public static Collection<RosterEntry> getConnectedUsers() {
+		try {
+			Roster roster = Roster.getInstanceFor(xmpp_connection);
+			Collection<RosterEntry> contacts = roster.getEntries();
+			return contacts;
+		}
+		catch (Exception e) {
+			System.out.println("Error obteniendo usuarios conectados  |  " + e.getMessage());
+			e.printStackTrace();
+			return null;
+		}
 	}
 
 	public static boolean sendFile() {
 		return false;
 	}
 
-	public static boolean receiveFile() {
-		return false;
+	public static File receiveFile() {
+		return null;
 	}
 
 	public static void main(String[] args) {
