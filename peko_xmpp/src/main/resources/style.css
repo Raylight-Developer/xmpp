@@ -1,15 +1,39 @@
 * {
-	-fx-background-color: rgb(30,30,30);
 	-fx-text-fill: rgb(250,250,250);
 	-fx-font-family: "Roboto Mono";
-	-fx-font-size: 16px;
 	-fx-font-weight: bold;
+	-fx-font-size: 16px;
 }
 
-.text-field, .button {
+.root {
+	-fx-background-color: rgb(40,40,40);
+}
+
+.button {
 	-fx-border-width: 1px;
 	-fx-border-radius: 5px;
 	-fx-border-color: rgb(250,250,250);
+	-fx-background-color: rgb(30,30,30);
+}
+
+.text-field {
+	-fx-border-width: 1px;
+	-fx-border-radius: 5px;
+	-fx-border-color: rgb(250,250,250);
+	-fx-background-color: rgb(30,30,30);
+}
+
+.text-area {
+	-fx-border-width: 1px;
+	-fx-border-radius: 5px;
+	-fx-border-color: rgb(250,250,250);
+	-fx-background-color: rgb(20,20,20);
+}
+
+.text-area .content {
+	-fx-border-width: 0px;
+	-fx-border-radius: 5px;
+	-fx-background-color: rgb(20,20,20);
 }
 
 .button:hover {

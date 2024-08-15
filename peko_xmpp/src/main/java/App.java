@@ -88,36 +88,39 @@ public class App extends Application {
 		button_signin.setOnAction(e -> {
 			username = field_username.getText();
 			password = field_password.getText();
-			if (signIn(username, password)) {
-				guiHomeScreen(stage);
-			}
-			else {
-				Alert alert = new Alert(AlertType.WARNING);
-				alert.setTitle("Warning");
-				alert.setHeaderText("Error");
-				alert.setContentText("Login Failed.");
-				alert.showAndWait();
-			}
+			//if (signIn(username, password)) {
+			//	guiHomeScreen(stage);
+			//}
+			//else {
+			//	Alert alert = new Alert(AlertType.WARNING);
+			//	alert.setTitle("Warning");
+			//	alert.setHeaderText("Error");
+			//	alert.setContentText("Login Failed.");
+			//	alert.showAndWait();
+			//}
+			guiHomeScreen(stage);
 		});
 
 		button_signup.setOnAction(e -> {
 			username = field_username.getText();
 			password = field_password.getText();
-			if (signUp(username, password)) {
-				guiHomeScreen(stage);
-			}
-			else {
-				Alert alert = new Alert(AlertType.WARNING);
-				alert.setTitle("Warning");
-				alert.setHeaderText("Error");
-				alert.setContentText("Login Failed.");
-				alert.showAndWait();
-			}
+			//if (signUp(username, password)) {
+			//	guiHomeScreen(stage);
+			//}
+			//else {
+			//	Alert alert = new Alert(AlertType.WARNING);
+			//	alert.setTitle("Warning");
+			//	alert.setHeaderText("Error");
+			//	alert.setContentText("Login Failed.");
+			//	alert.showAndWait();
+			//}
+			guiHomeScreen(stage);
 		});
 	}
 
 	private void guiHomeScreen(Stage stage) {
 		Label label = new Label("Bienvenido " + username);
+		label.setStyle("-fx-max-width: Infinity; -fx-font-size: 20px;");
 
 		Button button_chat = new Button("Chatear");
 		button_chat.setStyle("-fx-max-width: Infinity;");
@@ -138,10 +141,11 @@ public class App extends Application {
 		VBox layout_menu = new VBox(10);
 		layout_menu.setAlignment(Pos.TOP_CENTER);
 		layout_menu.setSpacing(10);
-		layout_menu.setPadding(new Insets(10));
 		layout_menu.getChildren().addAll(label, button_chat, layout_menu_a);
+		VBox.setVgrow(label, Priority.ALWAYS);
 
 		VBox layout_container = new VBox(10);
+		layout_container.setPadding(new Insets(10));
 		layout_container.setAlignment(Pos.TOP_CENTER);
 		layout_container.getChildren().add(label);
 		layout_container.getChildren().add(layout_main);
@@ -156,6 +160,43 @@ public class App extends Application {
 
 		stage.setScene(scene);
 		stage.show();
+
+		button_chat.setOnAction(e -> {
+			guiChatScreen(layout_main, label);
+		});
+
+		button_contacts.setOnAction(e -> {
+			guiContactsScreen(layout_main, label);
+		});
+
+		button_account.setOnAction(e -> {
+			guiAccountScreen(layout_main, label);
+		});
+	}
+
+	private void guiChatScreen(VBox container, Label label) {
+		container.getChildren().clear();
+		label.setText("Chat");
+
+		TextArea field_message = new TextArea();
+		field_message.setStyle("-fx-max-height: Infinity;");
+		field_message.setPromptText("Mensaje...");
+
+		container.getChildren().add(field_message);
+		VBox.setVgrow(field_message, Priority.ALWAYS);
+	}
+
+	private void guiContactsScreen(VBox container, Label label) {
+		container.getChildren().clear();
+		label.setText("Mis Contactos");
+	}
+
+	private void guiAccountScreen(VBox container, Label label) {
+		container.getChildren().clear();
+		label.setText("Mi Cuenta");
+	}
+
+	private void guiUserListScreen(VBox container, Label label) {
 	}
 
 	public static boolean signUp(String username, String password) {
