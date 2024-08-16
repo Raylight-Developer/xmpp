@@ -1,10 +1,10 @@
 
 
 // Java FX
-import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.collections.ObservableList;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.image.Image;
+import javafx.application.*;
+import javafx.collections.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.geometry.*;
@@ -34,7 +34,6 @@ import java.io.*;
 public class App extends Application {
 	private static AbstractXMPPConnection xmpp_connection;
 	private static ObservableList<Pair<String, String>> incoming_messages;
-	private ObservableList<String> connected_users;
 
 	private static String domain = "alumchat.lol";
 	private String username = "mar21430-test";
@@ -42,6 +41,8 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage stage) throws IOException {
+		incoming_messages = FXCollections.observableArrayList();
+
 		stage.setTitle("XMPP Chat");
 
 		StackPane root = new StackPane();
@@ -97,7 +98,7 @@ GUI
 
 		scene.setRoot(root);
 
-		button_signin.setOnAction(e -> {
+		button_signin.setOnAction(event -> {
 			username = field_username.getText();
 			password = field_password.getText();
 			if (signIn(username, password)) {
@@ -106,7 +107,7 @@ GUI
 			//guiHomeScreen(scene);
 		});
 
-		button_signup.setOnAction(e -> {
+		button_signup.setOnAction(event -> {
 			username = field_username.getText();
 			password = field_password.getText();
 			if (signUp(username, password)) {
@@ -153,18 +154,17 @@ GUI
 
 		scene.setRoot(root);
 
-		guiChatScreen(scene, layout_main, label);
-
-		button_chat.setOnAction(e -> {
+		button_chat.setOnAction(event -> {
 			guiChatScreen(scene, layout_main, label);
 		});
 
-		button_account.setOnAction(e -> {
+		button_account.setOnAction(event -> {
 			guiAccountScreen(scene, layout_main, label);
 		});
 		
 		button_logout.setOnAction(event -> {
 			Alert alert = new Alert(AlertType.CONFIRMATION);
+			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Confirmation");
 			alert.setHeaderText("Confirm your action");
 			alert.setContentText("Are you sure you want to sign out?");
@@ -175,6 +175,8 @@ GUI
 				guiLoginScreen(scene);
 			}
 		});
+
+		guiChatScreen(scene, layout_main, label);
 	}
 
 	private void guiChatScreen(Scene scene, VBox container, Label label) {
@@ -189,15 +191,20 @@ GUI
 
 		Button button_remove_contact = new Button("Eliminar Contacto");
 		button_remove_contact.setStyle("-fx-max-width: Infinity;");
+		
+		Button button_refresh_contacts = new Button("⟳");
 
 		HBox layout_contacts_header = new HBox(10);
-		layout_contacts_header.getChildren().addAll(button_add_contact, button_remove_contact);
+		layout_contacts_header.getChildren().addAll(button_add_contact, button_remove_contact, button_refresh_contacts);
 		HBox.setHgrow(button_add_contact, Priority.ALWAYS);
 		HBox.setHgrow(button_remove_contact, Priority.ALWAYS);
 
 		VBox layout_contacts_list_content = new VBox(10);
+		layout_contacts_list_content.setPadding(new Insets(10));
 		ScrollPane scroll_contacts = new ScrollPane(layout_contacts_list_content);
 		scroll_contacts.setStyle("-fx-max-height: Infinity; -fx-max-width: Infinity; -fx-min-width:200px;");
+		scroll_contacts.setFitToWidth(true);
+		scroll_contacts.setFitToHeight(true);
 
 		VBox layout_contacts = new VBox(10);
 		layout_contacts.getChildren().addAll(label_contact, layout_contacts_header, scroll_contacts);
@@ -228,23 +235,67 @@ GUI
 		Label label_users = new Label("Usuarios Conectados");
 		label_users.setStyle("-fx-max-width: Infinity;");
 
+		Button button_refresh_users = new Button("⟳");
+
 		VBox layout_user_list_content = new VBox(10);
+		layout_user_list_content.setPadding(new Insets(10));
 		ScrollPane scroll_users = new ScrollPane(layout_user_list_content);
 		scroll_users.setStyle("-fx-max-height: Infinity; -fx-max-width: Infinity; -fx-min-width:200px;");
+		scroll_users.setFitToWidth(true);
+		scroll_users.setFitToHeight(true);
 
-		VBox layout_user = new VBox(10);
-		layout_user.getChildren().addAll(label_users, scroll_users);
+		VBox layout_users = new VBox(10);
+		layout_users.getChildren().addAll(label_users, button_refresh_users, scroll_users);
 		VBox.setVgrow(scroll_users, Priority.ALWAYS);
 //
 		HBox hbox = new HBox(10);
-		hbox.getChildren().addAll(layout_contacts, layout_message, layout_user);
+		hbox.getChildren().addAll(layout_contacts, layout_message, layout_users);
 		HBox.setHgrow(layout_contacts, Priority.ALWAYS);
 		HBox.setHgrow(layout_message, Priority.ALWAYS);
-		HBox.setHgrow(layout_user, Priority.ALWAYS);
+		HBox.setHgrow(layout_users, Priority.ALWAYS);
 
 		container.getChildren().add(hbox);
 		VBox.setVgrow(hbox, Priority.ALWAYS);
 
+		button_refresh_users.setOnAction(event -> {
+			guiUpdateUsers(layout_user_list_content);
+		});
+
+		button_refresh_contacts.setOnAction(event -> {
+			guiUpdateContacts(layout_contacts_list_content);
+		});
+
+		button_add_contact.setOnAction(event -> {
+			TextInputDialog dialog = new TextInputDialog();
+			dialog.getDialogPane().getStyleClass().add("alert");
+			dialog.setTitle("Agregar contacto");
+			dialog.setHeaderText("Agregar contacto");
+			dialog.setContentText("Ingrese el JID del contacto:");
+
+			dialog.showAndWait().ifPresent(jid -> addContact(jid + "@alumchat.lol"));
+			guiUpdateUsers(layout_user_list_content);
+			guiUpdateContacts(layout_contacts_list_content);
+		});
+
+		button_remove_contact.setOnAction(event -> {
+			TextInputDialog dialog = new TextInputDialog();
+			dialog.getDialogPane().getStyleClass().add("alert");
+			dialog.setTitle("Eliminar contacto");
+			dialog.setHeaderText("Eliminar contacto");
+			dialog.setContentText("Ingrese el JID del contacto:");
+
+			dialog.showAndWait().ifPresent(jid -> removeContact(jid + "@alumchat.lol"));
+			guiUpdateUsers(layout_user_list_content);
+			guiUpdateContacts(layout_contacts_list_content);
+		});
+		Platform.runLater(() -> {
+			guiUpdateUsers(layout_user_list_content);
+			guiUpdateContacts(layout_contacts_list_content);
+		});
+	}
+
+	private void guiUpdateUsers(VBox contents) {
+		contents.getChildren().clear();
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
 		for (RosterEntry entry : getConnectedUsers()) {
 			Presence presence = roster.getPresence(entry.getJid());
@@ -252,16 +303,63 @@ GUI
 			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
 
 			Label label_jid = new Label(entry.getJid().toString());
+			label_jid.setStyle("-fx-max-width: Infinity;");
 			Label label_status = new Label(user_status);
+			if (user_status == "Conectado") {
+				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
+			}
+			else {
+				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
+			}
 			Label label_message = new Label(status_message);
+			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
+			label_message.setAlignment(Pos.CENTER_RIGHT);
+
+			HBox layout_user_sub = new HBox(5);
+			layout_user_sub.setAlignment(Pos.CENTER_RIGHT);
+			layout_user_sub.getChildren().addAll(label_jid, label_status);
+			HBox.setHgrow(label_jid, Priority.ALWAYS);
+
+			VBox layout_user = new VBox(5);
+			layout_user.setPadding(new Insets(10));
+			layout_user.getChildren().addAll(layout_user_sub, label_message);
+			layout_user.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
+
+			contents.getChildren().add(layout_user);
+		}
+	}
+
+	private void guiUpdateContacts(VBox contents) {
+		contents.getChildren().clear();
+		Roster roster = Roster.getInstanceFor(xmpp_connection);
+		for (RosterEntry entry : getContacts()) {
+			Presence presence = roster.getPresence(entry.getJid());
+			String user_status = presence.isAvailable() ? "Conectado" : "Desconectado";
+			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
+
+			Label label_jid = new Label(entry.getJid().toString());
+			label_jid.setStyle("-fx-max-width: Infinity;");
+			Label label_status = new Label(user_status);
+			if (user_status == "Conectado") {
+				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
+			}
+			else {
+				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
+			}
+			Label label_message = new Label(status_message);
+			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
+			label_message.setAlignment(Pos.CENTER_RIGHT);
 
 			HBox layout_contact_sub = new HBox(5);
 			layout_contact_sub.getChildren().addAll(label_jid, label_status);
+			HBox.setHgrow(label_jid, Priority.ALWAYS);
 
 			VBox layout_contact = new VBox(5);
+			layout_contact.setPadding(new Insets(10));
 			layout_contact.getChildren().addAll(layout_contact_sub, label_message);
+			layout_contact.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
 
-			layout_user_list_content.getChildren().add(layout_contact);
+			contents.getChildren().add(layout_contact);
 		}
 	}
 
@@ -286,7 +384,7 @@ GUI
 		layout_presence.getChildren().addAll(label_presence, layout_presence_set);
 //
 		Button button_close_account = new Button("Eliminar Cuenta");
-		button_close_account.setStyle("-fx-max-width: Infinity; -fx-background-color: rgb(100,30,30);");
+		button_close_account.setStyle("-fx-max-width: Infinity; -fx-background-color: rgb(100,50,50);");
 //
 		HBox hbox = new HBox(10);
 		hbox.getChildren().addAll(layout_presence);
@@ -301,6 +399,7 @@ GUI
 
 		button_close_account.setOnAction(event -> {
 			Alert alert = new Alert(AlertType.CONFIRMATION);
+			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Confirmation");
 			alert.setHeaderText("Confirm your action");
 			alert.setContentText("Are you sure you want to delete your account?");
@@ -349,11 +448,12 @@ XMPP
 				}
 
 			}
-			catch (IOException e) {
+			catch (Exception e) {
 				System.out.println("Error registering " + username + "  |  " + e.getMessage());
 				e.printStackTrace();
 
 				Alert alert = new Alert(AlertType.WARNING);
+				alert.getDialogPane().getStyleClass().add("alert");
 				alert.setTitle("Warning");
 				alert.setHeaderText("Error");
 				alert.setContentText("Error registering " + username + "  |  " + e.getMessage());
@@ -367,6 +467,7 @@ XMPP
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
 			alert.setContentText("Error connecting to server " + domain + "  |  " + e.getMessage());
@@ -393,11 +494,12 @@ XMPP
 				System.out.println(username + " : Logged in");
 				return true;
 			}
-			catch (IOException e) {
+			catch (Exception e) {
 				System.out.println("Error signing in " + username + "  |  " + e.getMessage());
 				e.printStackTrace();
 
 				Alert alert = new Alert(AlertType.WARNING);
+				alert.getDialogPane().getStyleClass().add("alert");
 				alert.setTitle("Warning");
 				alert.setHeaderText("Error");
 				alert.setContentText("Error signing in " + username + "  |  " + e.getMessage());
@@ -411,6 +513,7 @@ XMPP
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
 			alert.setContentText("Error connecting to server " + domain + "  |  " + e.getMessage());
@@ -430,6 +533,7 @@ XMPP
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
 			alert.setContentText("Error signing out  |  " + e.getMessage());
@@ -452,6 +556,7 @@ XMPP
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
 			alert.setContentText("Error eliminando cuenta  |  " + e.getMessage());
@@ -492,6 +597,14 @@ XMPP
 		catch (Exception e) {
 			System.out.println("Error al enviar mensaje a " + to_user_jid + "  |  " + e.getMessage());
 			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error al enviar mensaje a " + to_user_jid + "  |  " + e.getMessage());
+			alert.showAndWait();
+
 			return false;
 		}
 	}
@@ -525,6 +638,38 @@ XMPP
 		catch (Exception e) {
 			System.out.println("Error al agregar contacto " + user_jid + "  |  " + e.getMessage());
 			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error al agregar contacto " + user_jid + "  |  " + e.getMessage());
+			alert.showAndWait();
+
+			return false;
+		}
+	}
+
+	public static boolean removeContact(String user_jid) {
+		try {
+			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
+			Roster roster = Roster.getInstanceFor(xmpp_connection);
+			RosterEntry entry = roster.getEntry(jid);
+			roster.removeEntry(entry);
+			System.out.println("Contacto eliminado " + user_jid);
+			return true;
+		}
+		catch (Exception e) {
+			System.out.println("Error al eliminar contacto " + user_jid + "  |  " + e.getMessage());
+			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error al eliminar contacto " + user_jid + "  |  " + e.getMessage());
+			alert.showAndWait();
+
 			return false;
 		}
 	}
@@ -532,12 +677,20 @@ XMPP
 	public static Collection<RosterEntry> getContacts() {
 		try {
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
-			Collection<RosterEntry> contacts = roster.getEntries();
-			return contacts;
+			Collection<RosterEntry> entries = roster.getEntries();
+			return entries;
 		}
 		catch (Exception e) {
 			System.out.println("Error obteniendo contactos  |  " + e.getMessage());
 			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error obteniendo contactos  |  " + e.getMessage());
+			alert.showAndWait();
+
 			return null;
 		}
 	}
@@ -545,79 +698,22 @@ XMPP
 	public static Collection<RosterEntry> getConnectedUsers() {
 		try {
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
-			Collection<RosterEntry> contacts = roster.getEntries();
-			return contacts;
+			Collection<RosterEntry> entries = roster.getEntries();
+			return entries;
 		}
 		catch (Exception e) {
 			System.out.println("Error obteniendo usuarios conectados  |  " + e.getMessage());
 			e.printStackTrace();
+			
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error obteniendo usuarios conectados  |  " + e.getMessage());
+			alert.showAndWait();
+
 			return null;
 		}
-	}
-
-//	private void setupPresenceListener() {
-//		Roster roster = Roster.getInstanceFor(xmpp_connection);
-//
-//		Collection<RosterEntry> entries = roster.getEntries();
-//		for (RosterEntry entry : entries) {
-//			Presence presence = roster.getPresence(entry.getJid());
-//			if (presence.isAvailable()) {
-//				addUserToList(entry.getJid().toString());
-//			}
-//		}
-//
-//		roster.addRosterListener(new RosterListener() {
-//			@Override
-//			public void entriesAdded(Collection<Jid> addresses) {
-//				for (Jid jid : addresses) {
-//					Presence presence = roster.getPresence(jid.asBareJid());
-//					if (presence.isAvailable()) {
-//						addUserToList(jid.toString());
-//					}
-//				}
-//			}
-//
-//			@Override
-//			public void entriesUpdated(Collection<Jid> addresses) {
-//				for (Jid jid : addresses) {
-//					Presence presence = roster.getPresence(jid.asBareJid());
-//					if (presence.isAvailable()) {
-//						addUserToList(jid.toString());
-//					} else {
-//						removeUserFromList(jid.toString());
-//					}
-//				}
-//			}
-//
-//			@Override
-//			public void entriesDeleted(Collection<Jid> addresses) {
-//				for (Jid jid : addresses) {
-//					removeUserFromList(jid.toString());
-//				}
-//			}
-//
-//			@Override
-//			public void presenceChanged(Presence presence) {
-//				EntityBareJid jid = presence.getFrom().asEntityBareJidIfPossible();
-//				if (presence.isAvailable()) {
-//					addUserToList(jid.toString());
-//				} else {
-//					removeUserFromList(jid.toString());
-//				}
-//			}
-//		});
-//	}
-
-	private void addUserToList(String user_jid) {
-		Platform.runLater(() -> {
-			if (!connected_users.contains(user_jid)) {
-				connected_users.add(user_jid);
-			}
-		});
-	}
-
-	private void removeUserFromList(String user_jid) {
-		Platform.runLater(() -> connected_users.remove(user_jid));
 	}
 
 	public static boolean sendFile(File file) {

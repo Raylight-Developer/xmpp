@@ -1,3 +1,5 @@
+Alejandro Martínez - 21430
+
 # Funciones
 ### Administración de cuentas
 1) Registrar una nueva cuenta en el servidor
@@ -19,8 +21,8 @@
 ### Comunicación
 1) Mostrar todos los usuarios/contactos y su estado
 	```java
-	public static Collection<RosterEntry> getConnectedUsers(); // TODO
-	public static Collection<RosterEntry> getContacts(); // TODO
+	public static Collection<RosterEntry> getConnectedUsers(); // TODO Not Working
+	public static Collection<RosterEntry> getContacts(); // Working
 	```
 2) Agregar un usuario a los contactos
 	```java
