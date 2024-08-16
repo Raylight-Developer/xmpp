@@ -43,14 +43,24 @@ public class App extends Application {
 	@Override
 	public void start(Stage stage) throws IOException {
 		stage.setTitle("XMPP Chat");
-		guiLoginScreen(stage);
+
+		StackPane root = new StackPane();
+
+		Scene scene = new Scene(root, 1600, 950);
+		scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+		scene.setRoot(root);
+
+		stage.setScene(scene);
+		stage.show();
+
+		guiLoginScreen(scene);
 	}
 /*-----------------------------
 
 GUI
 
 -----------------------------*/
-	private void guiLoginScreen(Stage stage) {
+	private void guiLoginScreen(Scene scene) {
 		TextField field_username = new TextField();
 		field_username.setPromptText("Usuario");
 		field_username.setStyle("-fx-max-width: Infinity;");
@@ -85,11 +95,7 @@ GUI
 		StackPane root = new StackPane();
 		root.getChildren().add(layout);
 
-		Scene scene = new Scene(root, 1600, 950);
-		scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
-
-		stage.setScene(scene);
-		stage.show();
+		scene.setRoot(root);
 
 		button_signin.setOnAction(e -> {
 			username = field_username.getText();
@@ -146,20 +152,32 @@ GUI
 		root.getChildren().add(layout_container);
 
 		scene.setRoot(root);
-		scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
 
-		guiChatScreen(layout_main, label);
+		guiChatScreen(scene, layout_main, label);
 
 		button_chat.setOnAction(e -> {
-			guiChatScreen(layout_main, label);
+			guiChatScreen(scene, layout_main, label);
 		});
 
 		button_account.setOnAction(e -> {
-			guiAccountScreen(layout_main, label);
+			guiAccountScreen(scene, layout_main, label);
+		});
+		
+		button_logout.setOnAction(event -> {
+			Alert alert = new Alert(AlertType.CONFIRMATION);
+			alert.setTitle("Confirmation");
+			alert.setHeaderText("Confirm your action");
+			alert.setContentText("Are you sure you want to sign out?");
+
+			Optional<ButtonType> result = alert.showAndWait();
+			if (result.isPresent() && result.get() == ButtonType.OK) {
+				signOut();
+				guiLoginScreen(scene);
+			}
 		});
 	}
 
-	private void guiChatScreen(VBox container, Label label) {
+	private void guiChatScreen(Scene scene, VBox container, Label label) {
 		container.getChildren().clear();
 		label.setText("Chat");
 //
@@ -247,7 +265,7 @@ GUI
 		}
 	}
 
-	private void guiAccountScreen(VBox container, Label label) {
+	private void guiAccountScreen(Scene scene, VBox container, Label label) {
 		container.getChildren().clear();
 		label.setText("Mi Cuenta  |  " + username);
 //
@@ -276,6 +294,27 @@ GUI
 
 		container.getChildren().addAll(hbox, button_close_account);
 		VBox.setVgrow(hbox, Priority.ALWAYS);
+
+		button_set_presence.setOnAction(event -> {
+			definePresence(username, field_presence.getText());
+		});
+
+		button_close_account.setOnAction(event -> {
+			Alert alert = new Alert(AlertType.CONFIRMATION);
+			alert.setTitle("Confirmation");
+			alert.setHeaderText("Confirm your action");
+			alert.setContentText("Are you sure you want to delete your account?");
+
+			Optional<ButtonType> result = alert.showAndWait();
+			if (result.isPresent() && result.get() == ButtonType.OK) {
+				deleteAccount();
+				guiLoginScreen(scene);
+			}
+		});
+
+		Roster roster = Roster.getInstanceFor(xmpp_connection);
+		Presence presence_message = roster.getPresence(xmpp_connection.getUser().asBareJid());
+		field_presence.setText(presence_message.getStatus());
 	}
 /*-----------------------------
 
@@ -422,7 +461,7 @@ XMPP
 		}
 	}
 
-	public static boolean definePresence(String user_jid, String message) {
+	public static boolean definePresence(String username, String message) {
 		try {
 			Presence presence = new Presence(Presence.Type.available);
 			presence.setStatus(message);
@@ -431,7 +470,7 @@ XMPP
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al definir el mensaje de presencia [ " + message + " ] para" + user_jid + "  |  " + e.getMessage());
+			System.out.println("Error al definir el mensaje de presencia [ " + message + " ] para" + username + "  |  " + e.getMessage());
 			e.printStackTrace();
 			return false;
 		}

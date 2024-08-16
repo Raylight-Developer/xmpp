@@ -2,19 +2,19 @@
 ### Administración de cuentas
 1) Registrar una nueva cuenta en el servidor
 	```java
-	public static boolean signUp(String username, String password);
+	public static boolean signUp(String username, String password); // Working
 	```
 2) Iniciar sesión con una cuenta
 	```java
-	public static boolean signIn(String username, String password);
+	public static boolean signIn(String username, String password); // Working
 	```
 3) Cerrar sesión con una cuenta
 	```java
-	public static boolean signOut(); // TODO
+	public static boolean signOut(); // Working
 	```
 4) Eliminar la cuenta del servidor
 	```java
-	public static boolean deleteAccount(); // TODO
+	public static boolean deleteAccount(); // Working
 	```
 ### Comunicación
 1) Mostrar todos los usuarios/contactos y su estado
@@ -40,7 +40,7 @@
 	```
 6) Definir mensaje de presencia
 	```java
-	public static boolean definePresence(String user_jid, String message); // TODO
+	public static boolean definePresence(String username, String message); // Working
 	```
 7) Enviar/recibir notificaciones
 	```java
