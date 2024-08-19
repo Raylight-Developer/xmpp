@@ -43,8 +43,8 @@ public class App extends Application {
 
 	private ObservableList<Pair<String,String>> chatMessages = FXCollections.observableArrayList();
 	private ObservableList<Pair<String,String>> roomMessages = FXCollections.observableArrayList();
-	private List<IncomingChatMessageListener> chat_listeners = new ArrayList<>();
-	private List<MessageListener> room_chat_listeners = new ArrayList<>();
+
+	private Map<String, MessageListener> room_chat_listeners = new HashMap<>();
 
 	private String user_domain = "@alumchat.lol";
 	private String room_domain = "@conference.alumchat.lol";
@@ -346,7 +346,7 @@ GUI
 		});
 
 		getConnectedUsers(layout_user_list_content);
-		getContacts(layout_contacts_list_content);
+		getContacts(layout_contacts_list_content, layout_message_area, field_message, field_user_jid);
 	}
 
 	private void guiRoomScreen(Scene scene, VBox container, Label label) {
@@ -371,14 +371,12 @@ GUI
 		button_delete_room.setStyle("-fx-max-width: Infinity; -fx-background-color: rgb(100,50,50);");
 		button_delete_room.setOnMouseEntered(e -> 
 			button_delete_room.setStyle(
-				"-fx-max-width: Infinity; "
-				+ "-fx-background-color: rgb(250,100,100); "
+				"-fx-max-width: Infinity; -fx-background-color: rgb(250,100,100); "
 			)
 		);
 		button_delete_room.setOnMouseExited(e -> 
 			button_delete_room.setStyle(
-				"-fx-max-width: Infinity; "
-				+ "-fx-background-color: rgb(100,50,50); "
+				"-fx-max-width: Infinity; -fx-background-color: rgb(100,50,50); "
 			)
 		);
 		VBox layout_message_area = new VBox(10);
@@ -481,14 +479,12 @@ GUI
 		
 		button_close_account.setOnMouseEntered(e -> 
 		button_close_account.setStyle(
-				"-fx-max-width: Infinity; "
-				+ "-fx-background-color: rgb(250,100,100); "
+				"-fx-max-width: Infinity; -fx-background-color: rgb(250,100,100); "
 			)
 		);
 		button_close_account.setOnMouseExited(e -> 
 		button_close_account.setStyle(
-				"-fx-max-width: Infinity; "
-				+ "-fx-background-color: rgb(100,50,50); "
+				"-fx-max-width: Infinity; -fx-background-color: rgb(100,50,50); "
 			)
 		);
 //
@@ -594,15 +590,16 @@ GUI
 		}
 	}
 
-	private void guiUpdateContacts(VBox contents, Roster roster) {
+	private void guiUpdateContacts(VBox contents, VBox layout_message_area, TextArea field_message, TextField field_user, Roster roster) {
 		contents.getChildren().clear();
 
 		for (RosterEntry entry : roster.getEntries()) {
 			Presence presence = roster.getPresence(entry.getJid());
 			String user_status = presence.isAvailable() ? "Conectado" : "Desconectado";
 			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
+			String user_id = entry.getJid().toString();
 	
-			Label label_jid = new Label(entry.getJid().toString());
+			Label label_jid = new Label(user_id);
 			label_jid.setStyle("-fx-max-width: Infinity;");
 			
 			Label label_status = new Label(user_status);
@@ -615,17 +612,62 @@ GUI
 			Label label_message = new Label(status_message);
 			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
 			label_message.setAlignment(Pos.CENTER_RIGHT);
+
+			Button button_message = new Button();
+			button_message.setText("✉");
+			button_message.setStyle("-fx-max-height: Infinity; -fx-background-color: rgb(50,100,50); -fx-font-size: 28px;");
+			button_message.setOnMouseEntered(e -> 
+			button_message.setStyle(
+					"-fx-max-height: Infinity; -fx-background-color: rgb(75,150,75); -fx-font-size: 28px;"
+				)
+			);
+			button_message.setOnMouseExited(e -> 
+			button_message.setStyle(
+					"-fx-max-height: Infinity; -fx-background-color: rgb(50,100,50); -fx-font-size: 28px;"
+				)
+			);
 	
-			HBox layout_contact_sub = new HBox(5);
-			layout_contact_sub.getChildren().addAll(label_jid, label_status);
+			HBox layout_contact_sub_sub = new HBox(5);
+			layout_contact_sub_sub.getChildren().addAll(label_jid, label_status);
 			HBox.setHgrow(label_jid, Priority.ALWAYS);
 	
-			VBox layout_contact = new VBox(5);
+			VBox layout_contact_sub = new VBox(5);
+			layout_contact_sub.getChildren().addAll(layout_contact_sub_sub, label_message);
+			layout_contact_sub.setStyle("-fx-max-width: Infinity;");
+			
+			HBox layout_contact = new HBox(5);
 			layout_contact.setPadding(new Insets(10));
-			layout_contact.getChildren().addAll(layout_contact_sub, label_message);
+			layout_contact.getChildren().addAll(layout_contact_sub, button_message);
 			layout_contact.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
 	
 			contents.getChildren().add(layout_contact);
+
+			button_message.setOnAction(event -> {
+				layout_message_area.getChildren().clear();
+				field_message.setVisible(true);
+				field_user.setText(user_id.replace(user_domain, ""));
+
+				for (Pair<String,String> message: chatMessages) {
+					if (message.getKey().equals(user_id)  || message.getKey().equals(username)) {
+							guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
+					}
+					else {
+						System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + user_id + " ]  |  " + message.getValue());
+					}
+				}
+
+				chatMessages.addListener((ListChangeListener<Pair<String, String>>) change -> {
+					layout_message_area.getChildren().clear();
+					for (Pair<String,String> message: chatMessages) {
+						if (message.getKey().equals(user_id) || message.getKey().equals(username)) {
+								guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
+						}
+						else {
+							System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + user_id + " ]  |  " + message.getValue());
+						}
+					}
+				});
+			});
 		}
 	}
 /*-----------------------------
@@ -829,17 +871,11 @@ XMPP
 	}
 
 	private void setupChatMessageListener() {
-		for (IncomingChatMessageListener listener : chat_listeners) {
-			chat_manager.removeIncomingListener(listener);
-		}
-		chat_listeners.clear();
-		IncomingChatMessageListener newListener = (from, message, chat) -> {
+		chat_manager.addIncomingListener((from, message, chat) -> {
 			Platform.runLater(() -> {
 				chatMessages.add(new Pair<String,String>(from.toString(), message.getBody()));
 			});
-		};
-		chat_manager.addIncomingListener(newListener);
-		chat_listeners.add(newListener);
+		});
 	}
 
 	private boolean joinRoom(String room_jid) {
@@ -962,41 +998,40 @@ XMPP
 	}
 
 	private void setupRoomMessageListener() {
-		for (MessageListener listener : room_chat_listeners) {
-			multi_user_chat.removeMessageListener(listener);
+		if (room_chat_listeners.containsKey(multi_user_chat.getRoom().toString())) {
+			multi_user_chat.removeMessageListener(room_chat_listeners.get(multi_user_chat.getRoom().toString()));
 		}
-		room_chat_listeners.clear();
 		MessageListener newListener = message -> {
 			Platform.runLater(() -> {
 				roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
 			});
 		};
 		multi_user_chat.addMessageListener(newListener);
-		room_chat_listeners.add(newListener);
+		room_chat_listeners.put(multi_user_chat.getRoom().toString(), newListener);
 	}
 
-	private void getContacts(VBox contents) {
+	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, TextField field_user) {
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
 
 		roster.addRosterListener(new RosterListener() {
 			@Override
 			public void entriesAdded(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster));
 			}
 			@Override
 			public void entriesUpdated(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster));
 			}
 			@Override
 			public void entriesDeleted(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster));
 			}
 			@Override
 			public void presenceChanged(Presence presence) {
-				Platform.runLater(() -> guiUpdateContacts(contents, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster));
 			}
 		});
-		guiUpdateContacts(contents, roster);
+		guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster);
 	}
 
 	private void getConnectedUsers(VBox contents) {
