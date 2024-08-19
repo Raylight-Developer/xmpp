@@ -36,13 +36,15 @@ import java.io.*;
 
 public class App extends Application {
 	private AbstractXMPPConnection xmpp_connection;
-	private MultiUserChatManager multiUserChatManager;
-	private MultiUserChat multiUserChat;
-	private ChatManager chatManager;
+	private MultiUserChatManager multi_user_chat_manager;
+	private MultiUserChat multi_user_chat;
+	private ChatManager chat_manager;
 
 
 	private ObservableList<Pair<String,String>> chatMessages = FXCollections.observableArrayList();
 	private ObservableList<Pair<String,String>> roomMessages = FXCollections.observableArrayList();
+	private List<IncomingChatMessageListener> chat_listeners = new ArrayList<>();
+	private List<MessageListener> room_chat_listeners = new ArrayList<>();
 
 	private String user_domain = "@alumchat.lol";
 	private String room_domain = "@conference.alumchat.lol";
@@ -74,20 +76,19 @@ GUI
 
 -----------------------------*/
 	private void guiLoginScreen(Scene scene) {
-		TextField field_username = new TextField();
-		field_username.setPromptText("Usuario");
+		TextField field_username = new TextField(username);
+		field_username.setPromptText("Username");
 		field_username.setStyle("-fx-max-width: Infinity;");
-		field_username.setText(username);
 
 		PasswordField field_password = new PasswordField();
-		field_password.setPromptText("Contraseña");
+		field_password.setPromptText("Password");
 		field_password.setStyle("-fx-max-width: Infinity;");
 		field_password.setText(password);
 
-		Button button_signin = new Button("Iniciar sesión");
+		Button button_signin = new Button("Sign In");
 		button_signin.setStyle("-fx-pref-width: 200px;");
 
-		Button button_signup = new Button("Registrar nueva cuenta");
+		Button button_signup = new Button("Sign Up");
 		button_signup.setStyle("-fx-pref-width: 200px;");
 
 		HBox layout_a = new HBox(10);
@@ -131,7 +132,7 @@ GUI
 	}
 
 	private void guiHomeScreen(Scene scene) {
-		Label label = new Label("Bienvenido " + username + "  |  " + nickname);
+		Label label = new Label("Welcome " + username + "  |  " + nickname);
 		label.setStyle("-fx-max-width: Infinity; -fx-font-size: 20px;");
 
 		Button button_logout = new Button("Log Out");
@@ -146,7 +147,7 @@ GUI
 		Button button_group_chat = new Button("Group Chat");
 		button_group_chat.setStyle("-fx-max-width: Infinity;");
 
-		Button button_account = new Button("Mi Cuenta");
+		Button button_account = new Button("My Account");
 		button_account.setStyle("-fx-max-width: Infinity;");
 
 		VBox layout_main = new VBox(10);
@@ -186,7 +187,7 @@ GUI
 		
 		button_logout.setOnAction(event -> {
 			Alert alert = new Alert(AlertType.CONFIRMATION);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Confirmation");
 			alert.setHeaderText("Confirm your action");
 			alert.setContentText("Are you sure you want to sign out?");
@@ -205,13 +206,13 @@ GUI
 		container.getChildren().clear();
 		label.setText("Chat");
 //
-		Label label_contact = new Label("Mis Contactos");
+		Label label_contact = new Label("My Contacts");
 		label_contact.setStyle("-fx-max-width: Infinity;");
 
-		Button button_add_contact = new Button("Agregar Contacto");
+		Button button_add_contact = new Button("Add Contact");
 		button_add_contact.setStyle("-fx-max-width: Infinity;");
 
-		Button button_remove_contact = new Button("Eliminar Contacto");
+		Button button_remove_contact = new Button("Delete Contact");
 		button_remove_contact.setStyle("-fx-max-width: Infinity;");
 
 		HBox layout_contacts_header = new HBox(10);
@@ -230,19 +231,18 @@ GUI
 		layout_contacts.getChildren().addAll(label_contact, layout_contacts_header, scroll_contacts);
 		VBox.setVgrow(scroll_contacts, Priority.ALWAYS);
 //
-		Label label_messages = new Label("Chattear");
+		Label label_messages = new Label("Chat");
 		label_messages.setStyle("-fx-max-width: Infinity;");
 
-		TextField field_user_jid = new TextField();
-		field_user_jid.setPromptText("Eviar a Usuario con JID...");
+		TextField field_user_jid = new TextField(username);
+		field_user_jid.setPromptText("Chat to user with JID...");
 		field_user_jid.setStyle("-fx-max-width: Infinity;");
 		field_user_jid.setAlignment(Pos.CENTER_RIGHT);
-		field_user_jid.setText(username);
 
 		Label label_address = new Label(user_domain);
 		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
 
-		Button button_join_chat = new Button("Unirse");
+		Button button_join_chat = new Button("Load Chat");
 		button_join_chat.setStyle("-fx-max-width: Infinity;");
 
 		VBox layout_message_area = new VBox(10);
@@ -254,7 +254,7 @@ GUI
 
 		TextArea field_message = new TextArea();
 		field_message.setStyle("-fx-max-height: Infinity;");
-		field_message.setPromptText("Mensaje...");
+		field_message.setPromptText("Message...");
 		field_message.setVisible(false);
 
 		HBox layout_message_header = new HBox(10);
@@ -266,7 +266,7 @@ GUI
 		layout_message.setStyle("-fx-pref-width: 800px;");
 		VBox.setVgrow(scroll_messages, Priority.ALWAYS);
 //
-		Label label_users = new Label("Usuarios Conectados");
+		Label label_users = new Label("Connected Users");
 		label_users.setStyle("-fx-max-width: Infinity;");
 
 		VBox layout_user_list_content = new VBox(10);
@@ -292,9 +292,9 @@ GUI
 		button_add_contact.setOnAction(event -> {
 			TextInputDialog dialog = new TextInputDialog();
 			dialog.getDialogPane().getStyleClass().add("alert");
-			dialog.setTitle("Agregar contacto");
-			dialog.setHeaderText("Agregar contacto");
-			dialog.setContentText("Ingrese el JID del contacto:");
+			dialog.setTitle("Add contact");
+			dialog.setHeaderText("Add contact");
+			dialog.setContentText("Contact JID to add:");
 
 			dialog.showAndWait().ifPresent(jid -> addContact(jid + user_domain));
 		});
@@ -302,9 +302,9 @@ GUI
 		button_remove_contact.setOnAction(event -> {
 			TextInputDialog dialog = new TextInputDialog();
 			dialog.getDialogPane().getStyleClass().add("alert");
-			dialog.setTitle("Eliminar contacto");
-			dialog.setHeaderText("Eliminar contacto");
-			dialog.setContentText("Ingrese el JID del contacto:");
+			dialog.setTitle("Delete contact");
+			dialog.setHeaderText("Delete contact");
+			dialog.setContentText("Contact JID to delete:");
 
 			dialog.showAndWait().ifPresent(jid -> removeContact(jid + user_domain));
 		});
@@ -353,24 +353,34 @@ GUI
 		container.getChildren().clear();
 		label.setText("Group Chat");
 //
-		Label label_messages = new Label("Chattear");
+		Label label_messages = new Label("Group Chat");
 		label_messages.setStyle("-fx-max-width: Infinity;");
 
-		TextField field_room_jid = new TextField();
-		field_room_jid.setPromptText("Eviar a Grupo con JID...");
+		TextField field_room_jid = new TextField(group_id);
+		field_room_jid.setPromptText("Join Group with JID...");
 		field_room_jid.setStyle("-fx-max-width: Infinity;");
 		field_room_jid.setAlignment(Pos.CENTER_RIGHT);
-		field_room_jid.setText(group_id);
 
 		Label label_address = new Label(room_domain);
 		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
 
-		Button button_join_room = new Button("Unirse");
+		Button button_join_room = new Button("Join Room");
 		button_join_room.setStyle("-fx-max-width: Infinity;");
 		
-		Button button_delete_room = new Button("Eliminar");
+		Button button_delete_room = new Button("Delete Room");
 		button_delete_room.setStyle("-fx-max-width: Infinity; -fx-background-color: rgb(100,50,50);");
-
+		button_delete_room.setOnMouseEntered(e -> 
+			button_delete_room.setStyle(
+				"-fx-max-width: Infinity; "
+				+ "-fx-background-color: rgb(250,100,100); "
+			)
+		);
+		button_delete_room.setOnMouseExited(e -> 
+			button_delete_room.setStyle(
+				"-fx-max-width: Infinity; "
+				+ "-fx-background-color: rgb(100,50,50); "
+			)
+		);
 		VBox layout_message_area = new VBox(10);
 		layout_message_area.setPadding(new Insets(10));
 		ScrollPane scroll_messages = new ScrollPane(layout_message_area);
@@ -380,7 +390,7 @@ GUI
 
 		TextArea field_message = new TextArea();
 		field_message.setStyle("-fx-max-height: Infinity;");
-		field_message.setPromptText("Mensaje...");
+		field_message.setPromptText("Message...");
 		field_message.setVisible(false);
 
 		HBox layout_message_header = new HBox(10);
@@ -400,29 +410,18 @@ GUI
 		VBox.setVgrow(hbox, Priority.ALWAYS);
 
 		button_join_room.setOnAction(event -> {
+			roomMessages.clear();
 			if (joinRoom(field_room_jid.getText() + room_domain)) {
 				layout_message_area.getChildren().clear();
 				field_message.setVisible(true);
 
 				setupRoomMessageListener();
 
-				for (Pair<String,String> message: roomMessages) {
-					if (message.getKey().equals(nickname)  || message.getKey().equals(username)) {
-							guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
-					}
-					else {
-						System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + nickname + " ]  |  " + message.getValue());
-					}
-				}
-
 				roomMessages.addListener((ListChangeListener<Pair<String, String>>) change -> {
 					layout_message_area.getChildren().clear();
 					for (Pair<String,String> message: roomMessages) {
-						if (message.getKey().equals(nickname) || message.getKey().equals(username)) {
-								guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
-						}
-						else {
-							System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + nickname + " ]  |  " + message.getValue());
+						if (message.getValue() != null) {
+							guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
 						}
 					}
 				});
@@ -432,15 +431,13 @@ GUI
 		button_delete_room.setOnAction(event -> {
 			if (deleteRoom(field_room_jid.getText() + room_domain)) {
 				field_message.setVisible(false);
+				layout_message_area.getChildren().clear();
 			}
 		});
 
 		field_message.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
 			if (event.getCode() == KeyCode.ENTER) {
 				sendRoomMessage(field_room_jid.getText() + room_domain, field_message.getText());
-				Platform.runLater(() -> {
-					roomMessages.add(new Pair<String,String>(username, field_message.getText()));
-				});
 				event.consume();
 			}
 		});
@@ -448,30 +445,56 @@ GUI
 
 	private void guiAccountScreen(Scene scene, VBox container, Label label) {
 		container.getChildren().clear();
-		label.setText("Mi Cuenta  |  " + username + "  |  " + nickname);
+		label.setText("My Account  |  " + username + "  |  " + nickname);
 //
-		Label label_presence = new Label("Mensaje de Presencia");
+		Label label_presence = new Label("Status Message");
 		label_presence.setStyle("-fx-max-width: Infinity;");
 
 		TextField field_presence = new TextField();
-		field_presence.setPromptText("Mensaje de Presencia...");
+		field_presence.setPromptText("Status Message...");
 		field_presence.setStyle("-fx-max-width: Infinity;");
 
-		Button button_set_presence = new Button("Actualizar");
+		Button button_set_presence = new Button("Update");
 
 		HBox layout_presence_set = new HBox(10);
 		layout_presence_set.getChildren().addAll(field_presence, button_set_presence);
 		HBox.setHgrow(field_presence, Priority.ALWAYS);
 
-		VBox layout_presence = new VBox(10);
-		layout_presence.getChildren().addAll(label_presence, layout_presence_set);
+		Label label_nickname = new Label("Nickname");
+		label_nickname.setStyle("-fx-max-width: Infinity;");
+
+		TextField field_nickname = new TextField(nickname);
+		field_nickname.setPromptText("Nickname...");
+		field_nickname.setStyle("-fx-max-width: Infinity;");
+
+		Button button_set_nickname = new Button("Update");
+
+		HBox layout_nickname_set = new HBox(10);
+		layout_nickname_set.getChildren().addAll(field_nickname, button_set_nickname);
+		HBox.setHgrow(field_nickname, Priority.ALWAYS);
+
+		VBox layout_account_settings = new VBox(10);
+		layout_account_settings.getChildren().addAll(label_presence, layout_presence_set, label_nickname, layout_nickname_set);
 //
-		Button button_close_account = new Button("Eliminar Cuenta");
+		Button button_close_account = new Button("Delete Account");
 		button_close_account.setStyle("-fx-max-width: Infinity; -fx-background-color: rgb(100,50,50);");
+		
+		button_close_account.setOnMouseEntered(e -> 
+		button_close_account.setStyle(
+				"-fx-max-width: Infinity; "
+				+ "-fx-background-color: rgb(250,100,100); "
+			)
+		);
+		button_close_account.setOnMouseExited(e -> 
+		button_close_account.setStyle(
+				"-fx-max-width: Infinity; "
+				+ "-fx-background-color: rgb(100,50,50); "
+			)
+		);
 //
 		HBox hbox = new HBox(10);
-		hbox.getChildren().addAll(layout_presence);
-		HBox.setHgrow(layout_presence, Priority.ALWAYS);
+		hbox.getChildren().addAll(layout_account_settings);
+		HBox.setHgrow(layout_account_settings, Priority.ALWAYS);
 
 		container.getChildren().addAll(hbox, button_close_account);
 		VBox.setVgrow(hbox, Priority.ALWAYS);
@@ -480,9 +503,14 @@ GUI
 			definePresence(username, field_presence.getText());
 		});
 
+		button_set_nickname.setOnAction(event -> {
+			nickname = field_nickname.getText();
+			label.setText("My Account  |  " + username + "  |  " + nickname);
+		});
+
 		button_close_account.setOnAction(event -> {
 			Alert alert = new Alert(AlertType.CONFIRMATION);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Confirmation");
 			alert.setHeaderText("Confirm your action");
 			alert.setContentText("Are you sure you want to delete your account?");
@@ -606,8 +634,8 @@ XMPP
 
 -----------------------------*/
 	public void setup() {
-		chatManager = ChatManager.getInstanceFor(xmpp_connection);
-		multiUserChatManager = MultiUserChatManager.getInstanceFor(xmpp_connection);
+		chat_manager = ChatManager.getInstanceFor(xmpp_connection);
+		multi_user_chat_manager = MultiUserChatManager.getInstanceFor(xmpp_connection);
 		setupChatMessageListener();
 	}
 
@@ -644,7 +672,7 @@ XMPP
 				e.printStackTrace();
 
 				Alert alert = new Alert(AlertType.WARNING);
-				alert.getDialogPane().getStyleClass().add("alert");
+				
 				alert.setTitle("Warning");
 				alert.setHeaderText("Error");
 				alert.setContentText("Error registering " + username + "  |  " + e.getMessage());
@@ -658,7 +686,7 @@ XMPP
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
 			alert.setContentText("Error connecting to server " + domain + "  |  " + e.getMessage());
@@ -690,7 +718,7 @@ XMPP
 				e.printStackTrace();
 
 				Alert alert = new Alert(AlertType.WARNING);
-				alert.getDialogPane().getStyleClass().add("alert");
+				
 				alert.setTitle("Warning");
 				alert.setHeaderText("Error");
 				alert.setContentText("Error signing in " + username + "  |  " + e.getMessage());
@@ -704,7 +732,7 @@ XMPP
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
 			alert.setContentText("Error connecting to server " + domain + "  |  " + e.getMessage());
@@ -724,7 +752,7 @@ XMPP
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
 			alert.setContentText("Error signing out  |  " + e.getMessage());
@@ -739,18 +767,18 @@ XMPP
 			AccountManager accountManager = AccountManager.getInstance(xmpp_connection);
 			accountManager.deleteAccount();
 			xmpp_connection.disconnect();
-			System.out.println("Cuenta eliminada exitosamente.");
+			System.out.println("Account deleted succesfully [ " + username + user_domain + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error eliminando cuenta  |  " + e.getMessage());
+			System.out.println("Error deleting account [ " + username + user_domain + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error eliminando cuenta  |  " + e.getMessage());
+			alert.setContentText("Error deleting account [ " + username + user_domain + " ]  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
@@ -762,11 +790,11 @@ XMPP
 			Presence presence = new Presence(Presence.Type.available);
 			presence.setStatus(message);
 			xmpp_connection.sendStanza(presence);
-			System.out.println("Mensaje de presencia definido [ " + message + " ]");
+			System.out.println("Status message set [ " + message + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al definir el mensaje de presencia [ " + message + " ] para" + username + "  |  " + e.getMessage());
+			System.out.println("Error defining status message [ " + message + " ] for [ " + username + user_domain + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 			return false;
 		}
@@ -782,18 +810,18 @@ XMPP
 			message.setBody(message_body);
 			chat.send(message);
 
-			System.out.println("Mensaje [ " + message_body + " ] enviado de " + username + user_domain + " a " + to_user_jid + user_domain);
+			System.out.println("Menssage [ " + message_body + " ] sent to [ " + to_user_jid + user_domain + " ] by [ " + username + user_domain + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al enviar mensaje de " + username + user_domain + " a " + to_user_jid + user_domain+ "  |  " + e.getMessage());
+			System.out.println("Error sending message to [ " + to_user_jid + user_domain + " ] by [ " + username + user_domain+ " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error al enviar mensaje de " + username + user_domain + " a " + to_user_jid + user_domain + "  |  " + e.getMessage());
+			alert.setContentText("Error sending message to [ " + to_user_jid + user_domain + "] by [ " + username + user_domain + " ]  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
@@ -801,20 +829,26 @@ XMPP
 	}
 
 	private void setupChatMessageListener() {
-		chatManager.addIncomingListener((from, message, chat) -> {
+		for (IncomingChatMessageListener listener : chat_listeners) {
+			chat_manager.removeIncomingListener(listener);
+		}
+		chat_listeners.clear();
+		IncomingChatMessageListener newListener = (from, message, chat) -> {
 			Platform.runLater(() -> {
 				chatMessages.add(new Pair<String,String>(from.toString(), message.getBody()));
 			});
-		});
+		};
+		chat_manager.addIncomingListener(newListener);
+		chat_listeners.add(newListener);
 	}
 
 	private boolean joinRoom(String room_jid) {
 		try {
 			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
-			multiUserChat = multiUserChatManager.getMultiUserChat(roomJid);
-			multiUserChat.join(Resourcepart.from(nickname));
+			multi_user_chat = multi_user_chat_manager.getMultiUserChat(roomJid);
+			multi_user_chat.join(Resourcepart.from(nickname));
 
-			multiUserChat.addParticipantStatusListener(new ParticipantStatusListener() {
+			multi_user_chat.addParticipantStatusListener(new ParticipantStatusListener() {
 				@Override
 				public void joined(EntityFullJid participant) {
 					System.out.println("[ " +participant + " ] joined the chat");
@@ -825,18 +859,18 @@ XMPP
 					System.out.println("[ " +participant + " ] left the chat");
 				}
 			});
-			System.out.println("Te uniste al grupo [ " + room_jid + " ]");
+			System.out.println("You joined the chatroom [ " + room_jid + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al unirse al chat de grupo [ " + room_jid + " ]  |  " + e.getMessage());
+			System.out.println("Error joining chatroom [ " + room_jid + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.CONFIRMATION);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Confirmation");
 			alert.setHeaderText("Confirm your action");
-			alert.setContentText("Grupo no existe, deseas crearlo?");
+			alert.setContentText("Chatroom does not exist. Do you wish to create it?");
 
 			Optional<ButtonType> result = alert.showAndWait();
 			if (result.isPresent() && result.get() == ButtonType.OK) {
@@ -849,11 +883,11 @@ XMPP
 	private boolean createRoom(String room_jid) {
 		try {
 			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
-			multiUserChat = multiUserChatManager.getMultiUserChat(roomJid);
-			multiUserChat.createOrJoin(Resourcepart.from(nickname));
-			multiUserChat.sendConfigurationForm(multiUserChat.getConfigurationForm().getFillableForm());
+			multi_user_chat = multi_user_chat_manager.getMultiUserChat(roomJid);
+			multi_user_chat.createOrJoin(Resourcepart.from(nickname));
+			multi_user_chat.sendConfigurationForm(multi_user_chat.getConfigurationForm().getFillableForm());
 
-			multiUserChat.addParticipantStatusListener(new ParticipantStatusListener() {
+			multi_user_chat.addParticipantStatusListener(new ParticipantStatusListener() {
 				@Override
 				public void joined(EntityFullJid participant) {
 					System.out.println("[ " +participant + " ] joined the chat");
@@ -864,18 +898,18 @@ XMPP
 					System.out.println("[ " +participant + " ] left the chat");
 				}
 			});
-			System.out.println("Creaste y te uniste al grupo [ " + room_jid + " ]");
+			System.out.println("Created and joined chatroom [ " + room_jid + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al crear el chat de grupo [ " + room_jid + " ]  |  " + e.getMessage());
+			System.out.println("Error creating chatroom [ " + room_jid + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error al crear el chat de grupo [ " + room_jid + " ]  |  " + e.getMessage());
+			alert.setContentText("Error creating chatroom [ " + room_jid + " ]  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
@@ -885,22 +919,21 @@ XMPP
 	public boolean deleteRoom(String room_jid) {
 		try {
 			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
-			multiUserChat = multiUserChatManager.getMultiUserChat(roomJid);
-			multiUserChat.join(Resourcepart.from(nickname));
-			multiUserChat.destroy("Room deleted by admin", null);
+			multi_user_chat = multi_user_chat_manager.getMultiUserChat(roomJid);
+			multi_user_chat.destroy("Room deleted by admin ", null);
 
-			System.out.println("Eliminaste el chat de grupo [ " + room_jid + " ]");
+			System.out.println("Chatroom deleted [ " + room_jid + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al eliminar el chat de grupo [ " + room_jid + " ]  |  " + e.getMessage());
+			System.out.println("Error deleting chatroom [ " + room_jid + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error al eliminar el chat de grupo " + room_jid + "  |  " + e.getMessage());
+			alert.setContentText("Error deleteing chatroom " + room_jid + "  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
@@ -909,19 +942,19 @@ XMPP
 
 	public boolean sendRoomMessage(String to_room_jid, String message_body) {
 		try {
-			multiUserChat.sendMessage(message_body);
-			System.out.println("Mensaje [ " + message_body + " ] enviado de " + username + " a " + to_room_jid);
+			multi_user_chat.sendMessage(message_body);
+			System.out.println("Message [ " + message_body + " ] sent to chatroom [ " + to_room_jid + " ] by [ " + username + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al enviar mensaje a " + to_room_jid + "  |  " + e.getMessage());
+			System.out.println("Error sending message to chatroom [ " + to_room_jid + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
+			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error al enviar mensaje a " + to_room_jid + "  |  " + e.getMessage());
+			alert.setContentText("Error sending message to chatroom [ " + to_room_jid + " ]  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
@@ -929,12 +962,17 @@ XMPP
 	}
 
 	private void setupRoomMessageListener() {
-		roomMessages.clear();
-		multiUserChat.addMessageListener(message -> {
+		for (MessageListener listener : room_chat_listeners) {
+			multi_user_chat.removeMessageListener(listener);
+		}
+		room_chat_listeners.clear();
+		MessageListener newListener = message -> {
 			Platform.runLater(() -> {
 				roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
 			});
-		});
+		};
+		multi_user_chat.addMessageListener(newListener);
+		room_chat_listeners.add(newListener);
 	}
 
 	private void getContacts(VBox contents) {
@@ -990,18 +1028,17 @@ XMPP
 			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
 			roster.createEntry(jid, user_jid, null);
-			System.out.println("Contacto agregado " + user_jid);
+			System.out.println("Contact added [ " + user_jid + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al agregar contacto " + user_jid + "  |  " + e.getMessage());
+			System.out.println("Error adding contact [ " + user_jid + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error al agregar contacto " + user_jid + "  |  " + e.getMessage());
+			alert.setContentText("Error adding contact [ " + user_jid + " ]  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
@@ -1014,18 +1051,17 @@ XMPP
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
 			RosterEntry entry = roster.getEntry(jid);
 			roster.removeEntry(entry);
-			System.out.println("Contacto eliminado " + user_jid);
+			System.out.println("Deleted contact [ " + user_jid + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al eliminar contacto " + user_jid + "  |  " + e.getMessage());
+			System.out.println("Error deleting contact [ " + user_jid + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error al eliminar contacto " + user_jid + "  |  " + e.getMessage());
+			alert.setContentText("Error deleting contact [ " + user_jid + " ]  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
