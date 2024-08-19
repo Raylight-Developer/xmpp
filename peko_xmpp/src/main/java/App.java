@@ -4,14 +4,19 @@
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.input.*;
 import javafx.application.*;
+import javafx.collections.*;
 import javafx.scene.text.*;
 import javafx.geometry.*;
 import javafx.stage.*;
 import javafx.scene.*;
+import javafx.util.*;
 
 // Smack Lib
 import org.jivesoftware.smackx.iqregister.AccountManager;
+import org.jivesoftware.smackx.muc.*;
+
 import org.jivesoftware.smack.util.dns.minidns.MiniDnsResolver;
 import org.jivesoftware.smack.util.DNSUtil;
 import org.jivesoftware.smack.packet.*;
@@ -30,9 +35,19 @@ import java.util.*;
 import java.io.*;
 
 public class App extends Application {
-	private static AbstractXMPPConnection xmpp_connection;
+	private AbstractXMPPConnection xmpp_connection;
+	private MultiUserChatManager multiUserChatManager;
+	private MultiUserChat multiUserChat;
+	private ChatManager chatManager;
 
-	private static String domain = "alumchat.lol";
+
+	private ObservableList<Pair<String,String>> chatMessages = FXCollections.observableArrayList();
+	private ObservableList<Pair<String,String>> roomMessages = FXCollections.observableArrayList();
+
+	private String user_domain = "@alumchat.lol";
+	private String room_domain = "@conference.alumchat.lol";
+
+	private String domain = "alumchat.lol";
 	private String username = "mar21430-test";
 	private String password = "Test_123";
 
@@ -97,6 +112,7 @@ GUI
 			username = field_username.getText();
 			password = field_password.getText();
 			if (signIn(username, password)) {
+				setup();
 				guiHomeScreen(scene);
 			}
 			//guiHomeScreen(scene);
@@ -106,6 +122,7 @@ GUI
 			username = field_username.getText();
 			password = field_password.getText();
 			if (signUp(username, password)) {
+				setup();
 				guiHomeScreen(scene);
 			}
 		});
@@ -121,8 +138,11 @@ GUI
 		layout_header.getChildren().addAll(label, button_logout);
 		HBox.setHgrow(label, Priority.ALWAYS);
 
-		Button button_chat = new Button("Chatear");
+		Button button_chat = new Button("Chat");
 		button_chat.setStyle("-fx-max-width: Infinity;");
+
+		Button button_group_chat = new Button("Group Chat");
+		button_group_chat.setStyle("-fx-max-width: Infinity;");
 
 		Button button_account = new Button("Mi Cuenta");
 		button_account.setStyle("-fx-max-width: Infinity;");
@@ -132,8 +152,9 @@ GUI
 
 		HBox layout_menu = new HBox(10);
 		layout_menu.setAlignment(Pos.CENTER);
-		layout_menu.getChildren().addAll(button_chat, button_account);
+		layout_menu.getChildren().addAll(button_chat,button_group_chat, button_account);
 		HBox.setHgrow(button_chat, Priority.ALWAYS);
+		HBox.setHgrow(button_group_chat, Priority.ALWAYS);
 		HBox.setHgrow(button_account, Priority.ALWAYS);
 
 		VBox layout_container = new VBox(10);
@@ -151,6 +172,10 @@ GUI
 
 		button_chat.setOnAction(event -> {
 			guiChatScreen(scene, layout_main, label);
+		});
+
+		button_group_chat.setOnAction(event -> {
+			guiGroupScreen(scene, layout_main, label);
 		});
 
 		button_account.setOnAction(event -> {
@@ -203,23 +228,20 @@ GUI
 		layout_contacts.getChildren().addAll(label_contact, layout_contacts_header, scroll_contacts);
 		VBox.setVgrow(scroll_contacts, Priority.ALWAYS);
 //
-		Button button_single_chat = new Button("1-to-1");
-		Button button_multi_chat = new Button("n-to-n");
-
 		Label label_messages = new Label("Chattear");
 		label_messages.setStyle("-fx-max-width: Infinity;");
 
-		TextField field_to_user = new TextField();
-		field_to_user.setPromptText("Eviar a Usuario con JID...");
-		field_to_user.setStyle("-fx-max-width: Infinity;");
-		field_to_user.setAlignment(Pos.CENTER_RIGHT);
-		field_to_user.setText(username);
+		TextField field_user_jid = new TextField();
+		field_user_jid.setPromptText("Eviar a Usuario con JID...");
+		field_user_jid.setStyle("-fx-max-width: Infinity;");
+		field_user_jid.setAlignment(Pos.CENTER_RIGHT);
+		field_user_jid.setText(username);
 
-		Label label_address = new Label("@alumchat.lol");
+		Label label_address = new Label(user_domain);
 		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
 
-		Button button_send_mesasage = new Button("Enviar Mensaje");
-		button_send_mesasage.setStyle("-fx-max-width: Infinity;");
+		Button button_join_chat = new Button("Unirse");
+		button_join_chat.setStyle("-fx-max-width: Infinity;");
 
 		VBox layout_message_area = new VBox(10);
 		layout_message_area.setPadding(new Insets(10));
@@ -231,10 +253,11 @@ GUI
 		TextArea field_message = new TextArea();
 		field_message.setStyle("-fx-max-height: Infinity;");
 		field_message.setPromptText("Mensaje...");
+		field_message.setVisible(false);
 
 		HBox layout_message_header = new HBox(10);
-		layout_message_header.getChildren().addAll(button_single_chat, button_multi_chat, field_to_user, label_address, button_send_mesasage);
-		HBox.setHgrow(field_to_user, Priority.ALWAYS);
+		layout_message_header.getChildren().addAll(field_user_jid, label_address, button_join_chat);
+		HBox.setHgrow(field_user_jid, Priority.ALWAYS);
 
 		VBox layout_message = new VBox(10);
 		layout_message.getChildren().addAll(label_messages, layout_message_header, scroll_messages, field_message);
@@ -264,20 +287,6 @@ GUI
 		container.getChildren().add(hbox);
 		VBox.setVgrow(hbox, Priority.ALWAYS);
 
-		button_single_chat.setOnAction(event -> {
-			label_address.setText("@alumchat.lol");
-			field_to_user.clear();
-			field_to_user.setPromptText("Eviar a Usuario con JID...");
-			layout_message_area.getChildren().clear();
-		});
-
-		button_multi_chat.setOnAction(event -> {
-			label_address.setText("@conference.alumchat.lol");
-			field_to_user.clear();
-			field_to_user.setPromptText("Eviar a Grupo con JID...");
-			layout_message_area.getChildren().clear();
-		});
-
 		button_add_contact.setOnAction(event -> {
 			TextInputDialog dialog = new TextInputDialog();
 			dialog.getDialogPane().getStyleClass().add("alert");
@@ -285,7 +294,7 @@ GUI
 			dialog.setHeaderText("Agregar contacto");
 			dialog.setContentText("Ingrese el JID del contacto:");
 
-			dialog.showAndWait().ifPresent(jid -> addContact(jid + "@alumchat.lol"));
+			dialog.showAndWait().ifPresent(jid -> addContact(jid + user_domain));
 		});
 
 		button_remove_contact.setOnAction(event -> {
@@ -295,19 +304,109 @@ GUI
 			dialog.setHeaderText("Eliminar contacto");
 			dialog.setContentText("Ingrese el JID del contacto:");
 
-			dialog.showAndWait().ifPresent(jid -> removeContact(jid + "@alumchat.lol"));
+			dialog.showAndWait().ifPresent(jid -> removeContact(jid + user_domain));
 		});
 
-		button_send_mesasage.setOnAction(event -> {
-			if (label_address.getText() == "@alumchat.lol") {
-				sendMessage(username, field_to_user.getText() + "@alumchat.lol", field_message.getText());
-				guiAddIncomingMessage(username, field_message.getText(), layout_message_area);
+		button_join_chat.setOnAction(event -> {
+			layout_message_area.getChildren().clear();
+			field_message.setVisible(true);
+
+			for (Pair<String,String> message: chatMessages) {
+				if (message.getKey().equals(field_user_jid.getText() + user_domain)  || message.getKey().equals(username)) {
+						guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
+				}
+				else {
+					System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + field_user_jid.getText() + user_domain + " ]  |  " + message.getValue());
+				}
+			}
+
+			chatMessages.addListener((ListChangeListener<Pair<String, String>>) change -> {
+				layout_message_area.getChildren().clear();
+				for (Pair<String,String> message: chatMessages) {
+					if (message.getKey().equals(field_user_jid.getText() + user_domain) || message.getKey().equals(username)) {
+							guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
+					}
+					else {
+						System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + field_user_jid.getText() + user_domain + " ]  |  " + message.getValue());
+					}
+				}
+			});
+		});
+
+		field_message.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+			if (event.getCode() == KeyCode.ENTER) {
+				sendChatMessage(field_user_jid.getText(), field_message.getText());
+				Platform.runLater(() -> {
+					chatMessages.add(new Pair<String,String>(username, field_message.getText()));
+				});
+				event.consume();
 			}
 		});
 
 		getConnectedUsers(layout_user_list_content);
 		getContacts(layout_contacts_list_content);
-		getMessages(layout_message_area);
+	}
+
+	private void guiGroupScreen(Scene scene, VBox container, Label label) {
+		container.getChildren().clear();
+		label.setText("Group Chat");
+//
+		Label label_messages = new Label("Chattear");
+		label_messages.setStyle("-fx-max-width: Infinity;");
+
+		TextField field_room_jid = new TextField();
+		field_room_jid.setPromptText("Unirse a Chat Room con JID...");
+		field_room_jid.setStyle("-fx-max-width: Infinity;");
+		field_room_jid.setAlignment(Pos.CENTER_RIGHT);
+		field_room_jid.setText(username);
+
+		Label label_address = new Label(room_domain);
+		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
+
+		Button button_join_room = new Button("Unirse");
+		button_join_room.setStyle("-fx-max-width: Infinity;");
+
+		VBox layout_message_area = new VBox(10);
+		layout_message_area.setPadding(new Insets(10));
+		ScrollPane scroll_messages = new ScrollPane(layout_message_area);
+		scroll_messages.setStyle("-fx-max-height: Infinity; fx-max-width: Infinity;");
+		scroll_messages.setFitToWidth(true);
+		scroll_messages.setFitToHeight(true);
+
+		TextArea field_message = new TextArea();
+		field_message.setStyle("-fx-max-height: Infinity;");
+		field_message.setPromptText("Mensaje...");
+
+		HBox layout_message_header = new HBox(10);
+		layout_message_header.getChildren().addAll(field_room_jid, label_address, button_join_room);
+		HBox.setHgrow(field_room_jid, Priority.ALWAYS);
+
+		VBox layout_message = new VBox(10);
+		layout_message.getChildren().addAll(label_messages, layout_message_header, scroll_messages, field_message);
+		layout_message.setStyle("-fx-pref-width: 800px;");
+		VBox.setVgrow(scroll_messages, Priority.ALWAYS);
+//
+		HBox hbox = new HBox(10);
+		hbox.getChildren().addAll(layout_message);
+		HBox.setHgrow(layout_message, Priority.ALWAYS);
+
+		container.getChildren().add(hbox);
+		VBox.setVgrow(hbox, Priority.ALWAYS);
+
+		button_join_room.setOnAction(event -> {
+			joinRoom(field_room_jid.getText() + room_domain);
+		});
+
+		field_message.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+			if (event.getCode() == KeyCode.ENTER) {
+				sendRoomMessage(field_room_jid.getText() + room_domain, field_message.getText());
+				Platform.runLater(() -> {
+					chatMessages.add(new Pair<String,String>(username, field_message.getText()));
+				});
+				event.consume();
+			}
+		});
+
 	}
 
 	private void guiAccountScreen(Scene scene, VBox container, Label label) {
@@ -363,8 +462,8 @@ GUI
 		field_presence.setText(presence_message.getStatus());
 	}
 
-	private void guiAddIncomingMessage(String from_username, String message, VBox contents) {
-		if (from_username == username) {
+	private void guiAddIncomingMessage(String sender_username, String message, VBox contents) {
+		if (sender_username.equals(username) ) {
 			Label label_message = new Label(message);
 			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 14px; -fx-background-radius: 5px 5px; -fx-background-color: rgb(60,60,60); -fx-text-fill: rgb(175,250,175);");
 			label_message.setAlignment(Pos.CENTER_RIGHT);
@@ -382,7 +481,7 @@ GUI
 			contents.getChildren().add(layout_message_right);
 		}
 		else {
-			Label label_username = new Label(from_username);
+			Label label_username = new Label(username);
 			label_username.setStyle("-fx-max-width: Infinity; -fx-background-radius: 5px 5px 0px 0px; -fx-background-color: rgb(80,80,80);");
 
 			Label label_message= new Label(message);
@@ -469,7 +568,13 @@ GUI
 XMPP
 
 -----------------------------*/
-	public static boolean signUp(String username, String password) {
+	public void setup() {
+		chatManager = ChatManager.getInstanceFor(xmpp_connection);
+		multiUserChatManager = MultiUserChatManager.getInstanceFor(xmpp_connection);
+		setupChatMessageListener();
+	}
+
+	public boolean signUp(String username, String password) {
 		try {
 			DNSUtil.setDNSResolver(MiniDnsResolver.getInstance());
 			XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
@@ -526,7 +631,7 @@ XMPP
 		}
 	}
 
-	public static boolean signIn(String username, String password) {
+	public boolean signIn(String username, String password) {
 		try {
 			DNSUtil.setDNSResolver(MiniDnsResolver.getInstance());
 			XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
@@ -572,7 +677,7 @@ XMPP
 		}
 	}
 
-	public static boolean signOut() {
+	public boolean signOut() {
 		try {
 			xmpp_connection.disconnect();
 			return true;
@@ -592,7 +697,7 @@ XMPP
 		}
 	}
 
-	public static boolean deleteAccount() {
+	public boolean deleteAccount() {
 		try {
 			AccountManager accountManager = AccountManager.getInstance(xmpp_connection);
 			accountManager.deleteAccount();
@@ -615,7 +720,7 @@ XMPP
 		}
 	}
 
-	public static boolean definePresence(String username, String message) {
+	public boolean definePresence(String username, String message) {
 		try {
 			Presence presence = new Presence(Presence.Type.available);
 			presence.setStatus(message);
@@ -630,40 +735,97 @@ XMPP
 		}
 	}
 
-	public static boolean sendMessage(String from_username, String to_user_jid, String message_body) {
+	public boolean sendChatMessage(String to_user_jid, String message_body) {
 		try {
 			ChatManager manager = ChatManager.getInstanceFor(xmpp_connection);
-			EntityBareJid jid = JidCreate.entityBareFrom(to_user_jid);
+			EntityBareJid jid = JidCreate.entityBareFrom(to_user_jid + user_domain);
 			Chat chat = manager.chatWith(jid);
 
 			Message message = new Message(jid, Message.Type.chat);
 			message.setBody(message_body);
 			chat.send(message);
 
-			System.out.println("Mensaje [ " + message_body + " ] enviado de " + from_username + " a " + to_user_jid);
+			System.out.println("Mensaje [ " + message_body + " ] enviado de " + username + user_domain + " a " + to_user_jid + user_domain);
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al enviar mensaje a " + to_user_jid + "  |  " + e.getMessage());
+			System.out.println("Error al enviar mensaje de " + username + user_domain + " a " + to_user_jid + user_domain+ "  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
 			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error al enviar mensaje a " + to_user_jid + "  |  " + e.getMessage());
+			alert.setContentText("Error al enviar mensaje de " + username + user_domain + " a " + to_user_jid + user_domain + "  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
 		}
 	}
 
-	private void getMessages(VBox contents) {
-		ChatManager manager = ChatManager.getInstanceFor(xmpp_connection);
-		manager.addIncomingListener((from, message, chat) -> {
+	private void setupChatMessageListener() {
+		chatManager.addIncomingListener((from, message, chat) -> {
 			Platform.runLater(() -> {
-				guiAddIncomingMessage(from.toString(), message.getBody(), contents);
+				chatMessages.add(new Pair<String,String>(from.toString(), message.getBody()));
 			});
+		});
+	}
+
+	private void joinRoom(String room_jid) {
+		try {
+			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
+			multiUserChat = multiUserChatManager.getMultiUserChat(roomJid);
+			multiUserChat.join(Resourcepart.from("Pekoyo"));
+
+			multiUserChat.addParticipantStatusListener(new ParticipantStatusListener() {
+				@Override
+				public void joined(EntityFullJid participant) {
+					Platform.runLater(() -> System.out.println(participant + " joined the chat"));
+				}
+
+				@Override
+				public void left(EntityFullJid participant) {
+					Platform.runLater(() -> System.out.println(participant + " left the chat"));
+				}
+			});
+		}
+		catch (Exception e) {
+			System.out.println("Error al unirse al chat de grupo " + room_jid + "  |  " + e.getMessage());
+			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error al unirse al chat de grupo " + room_jid + "  |  " + e.getMessage());
+			alert.showAndWait();
+		}
+	}
+
+	public boolean sendRoomMessage(String to_room_jid, String message_body) {
+		try {
+			multiUserChat.sendMessage(message_body);
+			System.out.println("Mensaje [ " + message_body + " ] enviado de " + username + " a " + to_room_jid);
+			return true;
+		}
+		catch (Exception e) {
+			System.out.println("Error al enviar mensaje a " + to_room_jid + "  |  " + e.getMessage());
+			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error al enviar mensaje a " + to_room_jid + "  |  " + e.getMessage());
+			alert.showAndWait();
+
+			return false;
+		}
+	}
+
+	private void setupRoomMessageListener() {
+		multiUserChat.addMessageListener(message -> {
+			roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
 		});
 	}
 
@@ -715,7 +877,7 @@ XMPP
 		guiUpdateConnectedUsers(contents, roster);
 	}
 
-	public static boolean addContact(String user_jid) {
+	public boolean addContact(String user_jid) {
 		try {
 			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
@@ -738,7 +900,7 @@ XMPP
 		}
 	}
 
-	public static boolean removeContact(String user_jid) {
+	public boolean removeContact(String user_jid) {
 		try {
 			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
@@ -762,11 +924,11 @@ XMPP
 		}
 	}
 
-	public static boolean sendFile(File file) {
+	public boolean sendFile(File file) {
 		return false;
 	}
 
-	public static File receiveFile() {
+	public File receiveFile() {
 		return null;
 	}
 
