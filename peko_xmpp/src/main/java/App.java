@@ -48,7 +48,9 @@ public class App extends Application {
 	private String room_domain = "@conference.alumchat.lol";
 
 	private String domain = "alumchat.lol";
+	private String group_id = "grupeko";
 	private String username = "mar21430-test";
+	private String nickname = "Pekoyo";
 	private String password = "Test_123";
 
 	@Override
@@ -129,7 +131,7 @@ GUI
 	}
 
 	private void guiHomeScreen(Scene scene) {
-		Label label = new Label("Bienvenido " + username);
+		Label label = new Label("Bienvenido " + username + "  |  " + nickname);
 		label.setStyle("-fx-max-width: Infinity; -fx-font-size: 20px;");
 
 		Button button_logout = new Button("Log Out");
@@ -175,7 +177,7 @@ GUI
 		});
 
 		button_group_chat.setOnAction(event -> {
-			guiGroupScreen(scene, layout_main, label);
+			guiRoomScreen(scene, layout_main, label);
 		});
 
 		button_account.setOnAction(event -> {
@@ -347,7 +349,7 @@ GUI
 		getContacts(layout_contacts_list_content);
 	}
 
-	private void guiGroupScreen(Scene scene, VBox container, Label label) {
+	private void guiRoomScreen(Scene scene, VBox container, Label label) {
 		container.getChildren().clear();
 		label.setText("Group Chat");
 //
@@ -355,16 +357,19 @@ GUI
 		label_messages.setStyle("-fx-max-width: Infinity;");
 
 		TextField field_room_jid = new TextField();
-		field_room_jid.setPromptText("Unirse a Chat Room con JID...");
+		field_room_jid.setPromptText("Eviar a Grupo con JID...");
 		field_room_jid.setStyle("-fx-max-width: Infinity;");
 		field_room_jid.setAlignment(Pos.CENTER_RIGHT);
-		field_room_jid.setText(username);
+		field_room_jid.setText(group_id);
 
 		Label label_address = new Label(room_domain);
 		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
 
 		Button button_join_room = new Button("Unirse");
 		button_join_room.setStyle("-fx-max-width: Infinity;");
+		
+		Button button_delete_room = new Button("Eliminar");
+		button_delete_room.setStyle("-fx-max-width: Infinity; -fx-background-color: rgb(100,50,50);");
 
 		VBox layout_message_area = new VBox(10);
 		layout_message_area.setPadding(new Insets(10));
@@ -376,9 +381,10 @@ GUI
 		TextArea field_message = new TextArea();
 		field_message.setStyle("-fx-max-height: Infinity;");
 		field_message.setPromptText("Mensaje...");
+		field_message.setVisible(false);
 
 		HBox layout_message_header = new HBox(10);
-		layout_message_header.getChildren().addAll(field_room_jid, label_address, button_join_room);
+		layout_message_header.getChildren().addAll(field_room_jid, label_address, button_join_room, button_delete_room);
 		HBox.setHgrow(field_room_jid, Priority.ALWAYS);
 
 		VBox layout_message = new VBox(10);
@@ -394,24 +400,55 @@ GUI
 		VBox.setVgrow(hbox, Priority.ALWAYS);
 
 		button_join_room.setOnAction(event -> {
-			joinRoom(field_room_jid.getText() + room_domain);
+			if (joinRoom(field_room_jid.getText() + room_domain)) {
+				layout_message_area.getChildren().clear();
+				field_message.setVisible(true);
+
+				setupRoomMessageListener();
+
+				for (Pair<String,String> message: roomMessages) {
+					if (message.getKey().equals(nickname)  || message.getKey().equals(username)) {
+							guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
+					}
+					else {
+						System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + nickname + " ]  |  " + message.getValue());
+					}
+				}
+
+				roomMessages.addListener((ListChangeListener<Pair<String, String>>) change -> {
+					layout_message_area.getChildren().clear();
+					for (Pair<String,String> message: roomMessages) {
+						if (message.getKey().equals(nickname) || message.getKey().equals(username)) {
+								guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
+						}
+						else {
+							System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + nickname + " ]  |  " + message.getValue());
+						}
+					}
+				});
+			}
+		});
+
+		button_delete_room.setOnAction(event -> {
+			if (deleteRoom(field_room_jid.getText() + room_domain)) {
+				field_message.setVisible(false);
+			}
 		});
 
 		field_message.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
 			if (event.getCode() == KeyCode.ENTER) {
 				sendRoomMessage(field_room_jid.getText() + room_domain, field_message.getText());
 				Platform.runLater(() -> {
-					chatMessages.add(new Pair<String,String>(username, field_message.getText()));
+					roomMessages.add(new Pair<String,String>(username, field_message.getText()));
 				});
 				event.consume();
 			}
 		});
-
 	}
 
 	private void guiAccountScreen(Scene scene, VBox container, Label label) {
 		container.getChildren().clear();
-		label.setText("Mi Cuenta  |  " + username);
+		label.setText("Mi Cuenta  |  " + username + "  |  " + nickname);
 //
 		Label label_presence = new Label("Mensaje de Presencia");
 		label_presence.setStyle("-fx-max-width: Infinity;");
@@ -463,7 +500,7 @@ GUI
 	}
 
 	private void guiAddIncomingMessage(String sender_username, String message, VBox contents) {
-		if (sender_username.equals(username) ) {
+		if (sender_username.equals(username) || sender_username.equals(nickname)) {
 			Label label_message = new Label(message);
 			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 14px; -fx-background-radius: 5px 5px; -fx-background-color: rgb(60,60,60); -fx-text-fill: rgb(175,250,175);");
 			label_message.setAlignment(Pos.CENTER_RIGHT);
@@ -771,34 +808,102 @@ XMPP
 		});
 	}
 
-	private void joinRoom(String room_jid) {
+	private boolean joinRoom(String room_jid) {
 		try {
 			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
 			multiUserChat = multiUserChatManager.getMultiUserChat(roomJid);
-			multiUserChat.join(Resourcepart.from("Pekoyo"));
+			multiUserChat.join(Resourcepart.from(nickname));
 
 			multiUserChat.addParticipantStatusListener(new ParticipantStatusListener() {
 				@Override
 				public void joined(EntityFullJid participant) {
-					Platform.runLater(() -> System.out.println(participant + " joined the chat"));
+					System.out.println("[ " +participant + " ] joined the chat");
 				}
 
 				@Override
 				public void left(EntityFullJid participant) {
-					Platform.runLater(() -> System.out.println(participant + " left the chat"));
+					System.out.println("[ " +participant + " ] left the chat");
 				}
 			});
+			System.out.println("Te uniste al grupo [ " + room_jid + " ]");
+			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error al unirse al chat de grupo " + room_jid + "  |  " + e.getMessage());
+			System.out.println("Error al unirse al chat de grupo [ " + room_jid + " ]  |  " + e.getMessage());
+			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.CONFIRMATION);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Confirmation");
+			alert.setHeaderText("Confirm your action");
+			alert.setContentText("Grupo no existe, deseas crearlo?");
+
+			Optional<ButtonType> result = alert.showAndWait();
+			if (result.isPresent() && result.get() == ButtonType.OK) {
+				return createRoom(room_jid);
+			}
+			return false;
+		}
+	}
+
+	private boolean createRoom(String room_jid) {
+		try {
+			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
+			multiUserChat = multiUserChatManager.getMultiUserChat(roomJid);
+			multiUserChat.createOrJoin(Resourcepart.from(nickname));
+			multiUserChat.sendConfigurationForm(multiUserChat.getConfigurationForm().getFillableForm());
+
+			multiUserChat.addParticipantStatusListener(new ParticipantStatusListener() {
+				@Override
+				public void joined(EntityFullJid participant) {
+					System.out.println("[ " +participant + " ] joined the chat");
+				}
+
+				@Override
+				public void left(EntityFullJid participant) {
+					System.out.println("[ " +participant + " ] left the chat");
+				}
+			});
+			System.out.println("Creaste y te uniste al grupo [ " + room_jid + " ]");
+			return true;
+		}
+		catch (Exception e) {
+			System.out.println("Error al crear el chat de grupo [ " + room_jid + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
 			alert.getDialogPane().getStyleClass().add("alert");
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error al unirse al chat de grupo " + room_jid + "  |  " + e.getMessage());
+			alert.setContentText("Error al crear el chat de grupo [ " + room_jid + " ]  |  " + e.getMessage());
 			alert.showAndWait();
+
+			return false;
+		}
+	}
+
+	public boolean deleteRoom(String room_jid) {
+		try {
+			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
+			multiUserChat = multiUserChatManager.getMultiUserChat(roomJid);
+			multiUserChat.join(Resourcepart.from(nickname));
+			multiUserChat.destroy("Room deleted by admin", null);
+
+			System.out.println("Eliminaste el chat de grupo [ " + room_jid + " ]");
+			return true;
+		}
+		catch (Exception e) {
+			System.out.println("Error al eliminar el chat de grupo [ " + room_jid + " ]  |  " + e.getMessage());
+			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.getDialogPane().getStyleClass().add("alert");
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error al eliminar el chat de grupo " + room_jid + "  |  " + e.getMessage());
+			alert.showAndWait();
+
+			return false;
 		}
 	}
 
@@ -824,8 +929,11 @@ XMPP
 	}
 
 	private void setupRoomMessageListener() {
+		roomMessages.clear();
 		multiUserChat.addMessageListener(message -> {
-			roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
+			Platform.runLater(() -> {
+				roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
+			});
 		});
 	}
 
