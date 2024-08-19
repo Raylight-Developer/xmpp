@@ -21,12 +21,12 @@ Alejandro Martínez - 21430
 ### Comunicación
 1) Mostrar todos los usuarios/contactos y su estado
 	```java
-	public static Collection<RosterEntry> getConnectedUsers(); // TODO Not Working
-	public static Collection<RosterEntry> getContacts(); // Working
+	public static Collection<RosterEntry> getConnectedUsers(); // TODO <Not Working>
+	public static Collection<RosterEntry> getContacts(); // Working ?
 	```
 2) Agregar un usuario a los contactos
 	```java
-	public static boolean addContact(String user_jid); // TODO
+	public static boolean addContact(String user_jid); // Working ?
 	```
 3) Mostrar detalles de contacto de un usuario
 	```java
@@ -38,7 +38,7 @@ Alejandro Martínez - 21430
 	```
 5) Participar en conversaciones grupales
 	```java
-
+		MultiUserChatManager 
 	```
 6) Definir mensaje de presencia
 	```java
