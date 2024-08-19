@@ -22,7 +22,7 @@ Alejandro Martínez - 21430
 1) Mostrar todos los usuarios/contactos y su estado
 	```java
 	public static Collection<RosterEntry> getConnectedUsers(); // TODO <Not Working>
-	public static Collection<RosterEntry> getContacts(); // Working ?
+	private void getContacts(VBox contents); // Working
 	```
 2) Agregar un usuario a los contactos
 	```java
@@ -34,7 +34,7 @@ Alejandro Martínez - 21430
 	```
 4) Comunicación 1 a 1 con cualquier usuario/contacto
 	```java
-
+		private void getMessages(VBox contents); // Working
 	```
 5) Participar en conversaciones grupales
 	```java

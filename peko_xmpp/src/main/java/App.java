@@ -2,15 +2,13 @@
 
 // Java FX
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.image.Image;
-import javafx.application.*;
-import javafx.collections.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.application.*;
+import javafx.scene.text.*;
 import javafx.geometry.*;
 import javafx.stage.*;
 import javafx.scene.*;
-import javafx.util.*;
 
 // Smack Lib
 import org.jivesoftware.smackx.iqregister.AccountManager;
@@ -33,7 +31,6 @@ import java.io.*;
 
 public class App extends Application {
 	private static AbstractXMPPConnection xmpp_connection;
-	private static ObservableList<Pair<String, String>> incoming_messages;
 
 	private static String domain = "alumchat.lol";
 	private String username = "mar21430-test";
@@ -41,8 +38,6 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage stage) throws IOException {
-		incoming_messages = FXCollections.observableArrayList();
-
 		stage.setTitle("XMPP Chat");
 
 		StackPane root = new StackPane();
@@ -191,11 +186,9 @@ GUI
 
 		Button button_remove_contact = new Button("Eliminar Contacto");
 		button_remove_contact.setStyle("-fx-max-width: Infinity;");
-		
-		Button button_refresh_contacts = new Button("⟳");
 
 		HBox layout_contacts_header = new HBox(10);
-		layout_contacts_header.getChildren().addAll(button_add_contact, button_remove_contact, button_refresh_contacts);
+		layout_contacts_header.getChildren().addAll(button_add_contact, button_remove_contact);
 		HBox.setHgrow(button_add_contact, Priority.ALWAYS);
 		HBox.setHgrow(button_remove_contact, Priority.ALWAYS);
 
@@ -210,32 +203,46 @@ GUI
 		layout_contacts.getChildren().addAll(label_contact, layout_contacts_header, scroll_contacts);
 		VBox.setVgrow(scroll_contacts, Priority.ALWAYS);
 //
+		Button button_single_chat = new Button("1-to-1");
+		Button button_multi_chat = new Button("n-to-n");
+
 		Label label_messages = new Label("Chattear");
 		label_messages.setStyle("-fx-max-width: Infinity;");
 
 		TextField field_to_user = new TextField();
 		field_to_user.setPromptText("Eviar a Usuario con JID...");
 		field_to_user.setStyle("-fx-max-width: Infinity;");
+		field_to_user.setAlignment(Pos.CENTER_RIGHT);
+		field_to_user.setText(username);
+
+		Label label_address = new Label("@alumchat.lol");
+		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
 
 		Button button_send_mesasage = new Button("Enviar Mensaje");
 		button_send_mesasage.setStyle("-fx-max-width: Infinity;");
 
+		VBox layout_message_area = new VBox(10);
+		layout_message_area.setPadding(new Insets(10));
+		ScrollPane scroll_messages = new ScrollPane(layout_message_area);
+		scroll_messages.setStyle("-fx-max-height: Infinity; fx-max-width: Infinity;");
+		scroll_messages.setFitToWidth(true);
+		scroll_messages.setFitToHeight(true);
+
 		TextArea field_message = new TextArea();
-		field_message.setStyle("-fx-max-height: Infinity; -fx-min-width:200px;");
+		field_message.setStyle("-fx-max-height: Infinity;");
 		field_message.setPromptText("Mensaje...");
 
 		HBox layout_message_header = new HBox(10);
-		layout_message_header.getChildren().addAll(field_to_user, button_send_mesasage);
+		layout_message_header.getChildren().addAll(button_single_chat, button_multi_chat, field_to_user, label_address, button_send_mesasage);
 		HBox.setHgrow(field_to_user, Priority.ALWAYS);
 
 		VBox layout_message = new VBox(10);
-		layout_message.getChildren().addAll(label_messages, layout_message_header, field_message);
-		VBox.setVgrow(field_message, Priority.ALWAYS);
+		layout_message.getChildren().addAll(label_messages, layout_message_header, scroll_messages, field_message);
+		layout_message.setStyle("-fx-pref-width: 800px;");
+		VBox.setVgrow(scroll_messages, Priority.ALWAYS);
 //
 		Label label_users = new Label("Usuarios Conectados");
 		label_users.setStyle("-fx-max-width: Infinity;");
-
-		Button button_refresh_users = new Button("⟳");
 
 		VBox layout_user_list_content = new VBox(10);
 		layout_user_list_content.setPadding(new Insets(10));
@@ -245,7 +252,7 @@ GUI
 		scroll_users.setFitToHeight(true);
 
 		VBox layout_users = new VBox(10);
-		layout_users.getChildren().addAll(label_users, button_refresh_users, scroll_users);
+		layout_users.getChildren().addAll(label_users, scroll_users);
 		VBox.setVgrow(scroll_users, Priority.ALWAYS);
 //
 		HBox hbox = new HBox(10);
@@ -257,12 +264,18 @@ GUI
 		container.getChildren().add(hbox);
 		VBox.setVgrow(hbox, Priority.ALWAYS);
 
-		button_refresh_users.setOnAction(event -> {
-			guiUpdateUsers(layout_user_list_content);
+		button_single_chat.setOnAction(event -> {
+			label_address.setText("@alumchat.lol");
+			field_to_user.clear();
+			field_to_user.setPromptText("Eviar a Usuario con JID...");
+			layout_message_area.getChildren().clear();
 		});
 
-		button_refresh_contacts.setOnAction(event -> {
-			guiUpdateContacts(layout_contacts_list_content);
+		button_multi_chat.setOnAction(event -> {
+			label_address.setText("@conference.alumchat.lol");
+			field_to_user.clear();
+			field_to_user.setPromptText("Eviar a Grupo con JID...");
+			layout_message_area.getChildren().clear();
 		});
 
 		button_add_contact.setOnAction(event -> {
@@ -273,8 +286,6 @@ GUI
 			dialog.setContentText("Ingrese el JID del contacto:");
 
 			dialog.showAndWait().ifPresent(jid -> addContact(jid + "@alumchat.lol"));
-			guiUpdateUsers(layout_user_list_content);
-			guiUpdateContacts(layout_contacts_list_content);
 		});
 
 		button_remove_contact.setOnAction(event -> {
@@ -285,82 +296,18 @@ GUI
 			dialog.setContentText("Ingrese el JID del contacto:");
 
 			dialog.showAndWait().ifPresent(jid -> removeContact(jid + "@alumchat.lol"));
-			guiUpdateUsers(layout_user_list_content);
-			guiUpdateContacts(layout_contacts_list_content);
 		});
-		Platform.runLater(() -> {
-			guiUpdateUsers(layout_user_list_content);
-			guiUpdateContacts(layout_contacts_list_content);
+
+		button_send_mesasage.setOnAction(event -> {
+			if (label_address.getText() == "@alumchat.lol") {
+				sendMessage(username, field_to_user.getText() + "@alumchat.lol", field_message.getText());
+				guiAddIncomingMessage(username, field_message.getText(), layout_message_area);
+			}
 		});
-	}
 
-	private void guiUpdateUsers(VBox contents) {
-		contents.getChildren().clear();
-		Roster roster = Roster.getInstanceFor(xmpp_connection);
-		for (RosterEntry entry : getConnectedUsers()) {
-			Presence presence = roster.getPresence(entry.getJid());
-			String user_status = presence.isAvailable() ? "Conectado" : "Desconectado";
-			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
-
-			Label label_jid = new Label(entry.getJid().toString());
-			label_jid.setStyle("-fx-max-width: Infinity;");
-			Label label_status = new Label(user_status);
-			if (user_status == "Conectado") {
-				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
-			}
-			else {
-				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
-			}
-			Label label_message = new Label(status_message);
-			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
-			label_message.setAlignment(Pos.CENTER_RIGHT);
-
-			HBox layout_user_sub = new HBox(5);
-			layout_user_sub.setAlignment(Pos.CENTER_RIGHT);
-			layout_user_sub.getChildren().addAll(label_jid, label_status);
-			HBox.setHgrow(label_jid, Priority.ALWAYS);
-
-			VBox layout_user = new VBox(5);
-			layout_user.setPadding(new Insets(10));
-			layout_user.getChildren().addAll(layout_user_sub, label_message);
-			layout_user.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
-
-			contents.getChildren().add(layout_user);
-		}
-	}
-
-	private void guiUpdateContacts(VBox contents) {
-		contents.getChildren().clear();
-		Roster roster = Roster.getInstanceFor(xmpp_connection);
-		for (RosterEntry entry : getContacts()) {
-			Presence presence = roster.getPresence(entry.getJid());
-			String user_status = presence.isAvailable() ? "Conectado" : "Desconectado";
-			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
-
-			Label label_jid = new Label(entry.getJid().toString());
-			label_jid.setStyle("-fx-max-width: Infinity;");
-			Label label_status = new Label(user_status);
-			if (user_status == "Conectado") {
-				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
-			}
-			else {
-				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
-			}
-			Label label_message = new Label(status_message);
-			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
-			label_message.setAlignment(Pos.CENTER_RIGHT);
-
-			HBox layout_contact_sub = new HBox(5);
-			layout_contact_sub.getChildren().addAll(label_jid, label_status);
-			HBox.setHgrow(label_jid, Priority.ALWAYS);
-
-			VBox layout_contact = new VBox(5);
-			layout_contact.setPadding(new Insets(10));
-			layout_contact.getChildren().addAll(layout_contact_sub, label_message);
-			layout_contact.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
-
-			contents.getChildren().add(layout_contact);
-		}
+		getConnectedUsers(layout_user_list_content);
+		getContacts(layout_contacts_list_content);
+		getMessages(layout_message_area);
 	}
 
 	private void guiAccountScreen(Scene scene, VBox container, Label label) {
@@ -414,6 +361,108 @@ GUI
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
 		Presence presence_message = roster.getPresence(xmpp_connection.getUser().asBareJid());
 		field_presence.setText(presence_message.getStatus());
+	}
+
+	private void guiAddIncomingMessage(String from_username, String message, VBox contents) {
+		if (from_username == username) {
+			Label label_message = new Label(message);
+			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 14px; -fx-background-radius: 5px 5px; -fx-background-color: rgb(60,60,60); -fx-text-fill: rgb(175,250,175);");
+			label_message.setAlignment(Pos.CENTER_RIGHT);
+			label_message.setTextAlignment(TextAlignment.RIGHT);
+
+			VBox layout_message = new VBox(0);
+			layout_message.setStyle("-fx-min-width: 500px; -fx-max-width: 500px;");
+			layout_message.getChildren().add(label_message);
+			layout_message.setAlignment(Pos.CENTER_RIGHT);
+
+			HBox layout_message_right = new HBox();
+			layout_message_right.getChildren().add(layout_message);
+			layout_message_right.setStyle("-fx-max-width: Infinity; -fx-background-color: transparent; -fx-alignment: center-right;");
+
+			contents.getChildren().add(layout_message_right);
+		}
+		else {
+			Label label_username = new Label(from_username);
+			label_username.setStyle("-fx-max-width: Infinity; -fx-background-radius: 5px 5px 0px 0px; -fx-background-color: rgb(80,80,80);");
+
+			Label label_message= new Label(message);
+			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 14px; -fx-background-radius: 0px 0px 5px 5px; -fx-background-color: rgb(60,60,60);");
+
+			VBox layout_message = new VBox(0);
+			layout_message.setStyle("-fx-min-width: 500px; -fx-max-width: 500px;");
+			layout_message.getChildren().addAll(label_username, label_message);
+			contents.getChildren().add(layout_message);
+		}
+	}
+
+	private void guiUpdateConnectedUsers(VBox contents, Roster roster) {
+		contents.getChildren().clear();
+
+		for (RosterEntry entry : roster.getEntries()) {
+			Presence presence = roster.getPresence(entry.getJid());
+			String user_status = presence.isAvailable() ? "Conectado" : "Desconectado";
+			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
+	
+			Label label_jid = new Label(entry.getJid().toString());
+			label_jid.setStyle("-fx-max-width: Infinity;");
+			
+			Label label_status = new Label(user_status);
+			if ("Conectado".equals(user_status)) {
+				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
+			} else {
+				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
+			}
+			
+			Label label_message = new Label(status_message);
+			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
+			label_message.setAlignment(Pos.CENTER_RIGHT);
+	
+			HBox layout_contact_sub = new HBox(5);
+			layout_contact_sub.getChildren().addAll(label_jid, label_status);
+			HBox.setHgrow(label_jid, Priority.ALWAYS);
+	
+			VBox layout_contact = new VBox(5);
+			layout_contact.setPadding(new Insets(10));
+			layout_contact.getChildren().addAll(layout_contact_sub, label_message);
+			layout_contact.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
+	
+			contents.getChildren().add(layout_contact);
+		}
+	}
+
+	private void guiUpdateContacts(VBox contents, Roster roster) {
+		contents.getChildren().clear();
+
+		for (RosterEntry entry : roster.getEntries()) {
+			Presence presence = roster.getPresence(entry.getJid());
+			String user_status = presence.isAvailable() ? "Conectado" : "Desconectado";
+			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
+	
+			Label label_jid = new Label(entry.getJid().toString());
+			label_jid.setStyle("-fx-max-width: Infinity;");
+			
+			Label label_status = new Label(user_status);
+			if ("Conectado".equals(user_status)) {
+				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
+			} else {
+				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
+			}
+			
+			Label label_message = new Label(status_message);
+			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
+			label_message.setAlignment(Pos.CENTER_RIGHT);
+	
+			HBox layout_contact_sub = new HBox(5);
+			layout_contact_sub.getChildren().addAll(label_jid, label_status);
+			HBox.setHgrow(label_jid, Priority.ALWAYS);
+	
+			VBox layout_contact = new VBox(5);
+			layout_contact.setPadding(new Insets(10));
+			layout_contact.getChildren().addAll(layout_contact_sub, label_message);
+			layout_contact.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
+	
+			contents.getChildren().add(layout_contact);
+		}
 	}
 /*-----------------------------
 
@@ -609,22 +658,61 @@ XMPP
 		}
 	}
 
-	private void getMessages() {
+	private void getMessages(VBox contents) {
 		ChatManager manager = ChatManager.getInstanceFor(xmpp_connection);
-		manager.addIncomingListener(new IncomingChatMessageListener() {
+		manager.addIncomingListener((from, message, chat) -> {
+			Platform.runLater(() -> {
+				guiAddIncomingMessage(from.toString(), message.getBody(), contents);
+			});
+		});
+	}
+
+	private void getContacts(VBox contents) {
+		Roster roster = Roster.getInstanceFor(xmpp_connection);
+
+		roster.addRosterListener(new RosterListener() {
 			@Override
-			public void newIncomingMessage(EntityBareJid from, Message message, Chat chat) {
-				String from_user = from.toString();
-				String message_body = message.getBody();
-
-				System.out.println("Mensaje recibido de " + from_user + ": " + message_body);
-				incoming_messages.add(new Pair<String, String>(from_user, message_body));
-
-				Platform.runLater(() -> {
-					//displayMessage(fromUser, messageBody);
-				});
+			public void entriesAdded(Collection<Jid> addresses) {
+				Platform.runLater(() -> guiUpdateContacts(contents, roster));
+			}
+			@Override
+			public void entriesUpdated(Collection<Jid> addresses) {
+				Platform.runLater(() -> guiUpdateContacts(contents, roster));
+			}
+			@Override
+			public void entriesDeleted(Collection<Jid> addresses) {
+				Platform.runLater(() -> guiUpdateContacts(contents, roster));
+			}
+			@Override
+			public void presenceChanged(Presence presence) {
+				Platform.runLater(() -> guiUpdateContacts(contents, roster));
 			}
 		});
+		guiUpdateContacts(contents, roster);
+	}
+
+	private void getConnectedUsers(VBox contents) {
+		Roster roster = Roster.getInstanceFor(xmpp_connection);
+
+		roster.addRosterListener(new RosterListener() {
+			@Override
+			public void entriesAdded(Collection<Jid> addresses) {
+				Platform.runLater(() -> guiUpdateConnectedUsers(contents, roster));
+			}
+			@Override
+			public void entriesUpdated(Collection<Jid> addresses) {
+				Platform.runLater(() -> guiUpdateConnectedUsers(contents, roster));
+			}
+			@Override
+			public void entriesDeleted(Collection<Jid> addresses) {
+				Platform.runLater(() -> guiUpdateConnectedUsers(contents, roster));
+			}
+			@Override
+			public void presenceChanged(Presence presence) {
+				Platform.runLater(() -> guiUpdateConnectedUsers(contents, roster));
+			}
+		});
+		guiUpdateConnectedUsers(contents, roster);
 	}
 
 	public static boolean addContact(String user_jid) {
@@ -671,48 +759,6 @@ XMPP
 			alert.showAndWait();
 
 			return false;
-		}
-	}
-
-	public static Collection<RosterEntry> getContacts() {
-		try {
-			Roster roster = Roster.getInstanceFor(xmpp_connection);
-			Collection<RosterEntry> entries = roster.getEntries();
-			return entries;
-		}
-		catch (Exception e) {
-			System.out.println("Error obteniendo contactos  |  " + e.getMessage());
-			e.printStackTrace();
-
-			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
-			alert.setTitle("Warning");
-			alert.setHeaderText("Error");
-			alert.setContentText("Error obteniendo contactos  |  " + e.getMessage());
-			alert.showAndWait();
-
-			return null;
-		}
-	}
-
-	public static Collection<RosterEntry> getConnectedUsers() {
-		try {
-			Roster roster = Roster.getInstanceFor(xmpp_connection);
-			Collection<RosterEntry> entries = roster.getEntries();
-			return entries;
-		}
-		catch (Exception e) {
-			System.out.println("Error obteniendo usuarios conectados  |  " + e.getMessage());
-			e.printStackTrace();
-			
-			Alert alert = new Alert(AlertType.WARNING);
-			alert.getDialogPane().getStyleClass().add("alert");
-			alert.setTitle("Warning");
-			alert.setHeaderText("Error");
-			alert.setContentText("Error obteniendo usuarios conectados  |  " + e.getMessage());
-			alert.showAndWait();
-
-			return null;
 		}
 	}
 
