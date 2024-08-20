@@ -1,8 +1,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.peko_xmpp</groupId>
-	<artifactId>peko_xmpp</artifactId>
+	<artifactId>XMPP_Peko</artifactId>
 	<version>Pekoyo</version>
+	<packaging>jar</packaging>
+	<name>XMPP_Peko</name>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>11</maven.compiler.source>
@@ -13,17 +15,17 @@
 		<dependency>
 			<groupId>org.jxmpp</groupId>
 			<artifactId>jxmpp-util-cache</artifactId>
-			<version>1.1.0-alpha2</version>
+			<version>1.0.2</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jxmpp</groupId>
 			<artifactId>jxmpp-jid</artifactId>
-			<version>1.1.0-alpha2</version>
+			<version>1.0.2</version>
 		</dependency>
 		<dependency>
 			<groupId>org.jxmpp</groupId>
 			<artifactId>jxmpp-core</artifactId>
-			<version>1.1.0-alpha2</version>
+			<version>1.0.2</version>
 		</dependency>
 	<!-- SMACK -->
 		<dependency>
@@ -44,11 +46,6 @@
 		<dependency>
 			<groupId>org.igniterealtime.smack</groupId>
 			<artifactId>smack-tcp</artifactId>
-			<version>4.4.4</version>
-		</dependency>
-		<dependency>
-			<groupId>org.igniterealtime.smack</groupId>
-			<artifactId>smack-extensions</artifactId>
 			<version>4.4.4</version>
 		</dependency>
 		<dependency>

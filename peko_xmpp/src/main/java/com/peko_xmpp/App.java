@@ -1,4 +1,4 @@
-
+package com.peko_xmpp;
 
 // Java FX
 import javafx.scene.control.Alert.AlertType;
@@ -17,16 +17,20 @@ import javafx.util.*;
 import org.jivesoftware.smackx.iqregister.AccountManager;
 import org.jivesoftware.smackx.muc.*;
 
-import org.jivesoftware.smack.util.dns.minidns.MiniDnsResolver;
-import org.jivesoftware.smack.util.DNSUtil;
+import org.jivesoftware.smack.MessageListener;
+import org.jivesoftware.smack.SmackException;
+import org.jivesoftware.smack.StanzaListener;
+import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.*;
+import org.jivesoftware.smack.packet.Presence.*;
 import org.jivesoftware.smack.roster.*;
 import org.jivesoftware.smack.chat2.*;
+import org.jivesoftware.smack.filter.StanzaTypeFilter;
 import org.jivesoftware.smack.tcp.*;
-import org.jivesoftware.smack.*;
 
 // XMPP Lib
 import org.jxmpp.jid.parts.*;
+import org.jxmpp.stringprep.XmppStringprepException;
 import org.jxmpp.jid.impl.*;
 import org.jxmpp.jid.*;
 
@@ -35,11 +39,10 @@ import java.util.*;
 import java.io.*;
 
 public class App extends Application {
-	private AbstractXMPPConnection xmpp_connection;
+	private XMPPTCPConnection xmpp_connection;
 	private MultiUserChatManager multi_user_chat_manager;
 	private MultiUserChat multi_user_chat;
 	private ChatManager chat_manager;
-
 
 	private ObservableList<Pair<String,String>> chatMessages = FXCollections.observableArrayList();
 	private ObservableList<Pair<String,String>> roomMessages = FXCollections.observableArrayList();
@@ -51,13 +54,21 @@ public class App extends Application {
 
 	private String domain = "alumchat.lol";
 	private String group_id = "grupeko";
-	private String username = "mar21430-test";
+	private String username = "mar21430";
 	private String nickname = "Pekoyo";
 	private String password = "Test_123";
+	private String status_message = "Soy Don Peko";
 
 	@Override
 	public void start(Stage stage) throws IOException {
 		stage.setTitle("XMPP Chat");
+		stage.setOnCloseRequest(event -> {
+			if (xmpp_connection != null && xmpp_connection.isConnected()) {
+				xmpp_connection.removeAllStanzaAcknowledgedListeners();
+				signOut();
+			}
+
+		});
 
 		StackPane root = new StackPane();
 
@@ -114,7 +125,7 @@ GUI
 		button_signin.setOnAction(event -> {
 			username = field_username.getText();
 			password = field_password.getText();
-			if (signIn(username, password)) {
+			if (signIn()) {
 				setup();
 				guiHomeScreen(scene);
 			}
@@ -124,7 +135,7 @@ GUI
 		button_signup.setOnAction(event -> {
 			username = field_username.getText();
 			password = field_password.getText();
-			if (signUp(username, password)) {
+			if (signUp()) {
 				setup();
 				guiHomeScreen(scene);
 			}
@@ -266,25 +277,10 @@ GUI
 		layout_message.setStyle("-fx-pref-width: 800px;");
 		VBox.setVgrow(scroll_messages, Priority.ALWAYS);
 //
-		Label label_users = new Label("Connected Users");
-		label_users.setStyle("-fx-max-width: Infinity;");
-
-		VBox layout_user_list_content = new VBox(10);
-		layout_user_list_content.setPadding(new Insets(10));
-		ScrollPane scroll_users = new ScrollPane(layout_user_list_content);
-		scroll_users.setStyle("-fx-max-height: Infinity; -fx-max-width: Infinity; -fx-min-width:200px;");
-		scroll_users.setFitToWidth(true);
-		scroll_users.setFitToHeight(true);
-
-		VBox layout_users = new VBox(10);
-		layout_users.getChildren().addAll(label_users, scroll_users);
-		VBox.setVgrow(scroll_users, Priority.ALWAYS);
-//
 		HBox hbox = new HBox(10);
-		hbox.getChildren().addAll(layout_contacts, layout_message, layout_users);
+		hbox.getChildren().addAll(layout_contacts, layout_message);
 		HBox.setHgrow(layout_contacts, Priority.ALWAYS);
 		HBox.setHgrow(layout_message, Priority.ALWAYS);
-		HBox.setHgrow(layout_users, Priority.ALWAYS);
 
 		container.getChildren().add(hbox);
 		VBox.setVgrow(hbox, Priority.ALWAYS);
@@ -340,12 +336,12 @@ GUI
 				sendChatMessage(field_user_jid.getText(), field_message.getText());
 				Platform.runLater(() -> {
 					chatMessages.add(new Pair<String,String>(username, field_message.getText()));
+					field_message.clear();
 				});
 				event.consume();
 			}
 		});
 
-		getConnectedUsers(layout_user_list_content);
 		getContacts(layout_contacts_list_content, layout_message_area, field_message, field_user_jid);
 	}
 
@@ -436,6 +432,7 @@ GUI
 		field_message.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
 			if (event.getCode() == KeyCode.ENTER) {
 				sendRoomMessage(field_room_jid.getText() + room_domain, field_message.getText());
+				field_message.clear();
 				event.consume();
 			}
 		});
@@ -448,7 +445,7 @@ GUI
 		Label label_presence = new Label("Status Message");
 		label_presence.setStyle("-fx-max-width: Infinity;");
 
-		TextField field_presence = new TextField();
+		TextField field_presence = new TextField(status_message);
 		field_presence.setPromptText("Status Message...");
 		field_presence.setStyle("-fx-max-width: Infinity;");
 
@@ -496,7 +493,8 @@ GUI
 		VBox.setVgrow(hbox, Priority.ALWAYS);
 
 		button_set_presence.setOnAction(event -> {
-			definePresence(username, field_presence.getText());
+			status_message = field_presence.getText();
+			setPresence();
 		});
 
 		button_set_nickname.setOnAction(event -> {
@@ -519,6 +517,7 @@ GUI
 		});
 
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
+		roster.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
 		Presence presence_message = roster.getPresence(xmpp_connection.getUser().asBareJid());
 		field_presence.setText(presence_message.getStatus());
 	}
@@ -560,17 +559,19 @@ GUI
 
 		for (RosterEntry entry : roster.getEntries()) {
 			Presence presence = roster.getPresence(entry.getJid());
-			String user_status = presence.isAvailable() ? "Conectado" : "Desconectado";
+			String user_status = presence.getType().toString();
 			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
 	
 			Label label_jid = new Label(entry.getJid().toString());
 			label_jid.setStyle("-fx-max-width: Infinity;");
 			
 			Label label_status = new Label(user_status);
-			if ("Conectado".equals(user_status)) {
+			if ("available".equals(user_status)) {
 				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
-			} else {
+			} else if ("unavailable".equals(user_status)) {
 				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
+			} else {
+				label_status.setStyle("-fx-text-fill: rgb(10,100,100);");
 			}
 			
 			Label label_message = new Label(status_message);
@@ -595,7 +596,7 @@ GUI
 
 		for (RosterEntry entry : roster.getEntries()) {
 			Presence presence = roster.getPresence(entry.getJid());
-			String user_status = presence.isAvailable() ? "Conectado" : "Desconectado";
+			String user_status = presence.getType().toString();
 			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
 			String user_id = entry.getJid().toString();
 	
@@ -603,10 +604,12 @@ GUI
 			label_jid.setStyle("-fx-max-width: Infinity;");
 			
 			Label label_status = new Label(user_status);
-			if ("Conectado".equals(user_status)) {
+			if ("available".equals(user_status)) {
 				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
-			} else {
+			} else if ("unavailable".equals(user_status)) {
 				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
+			} else {
+				label_status.setStyle("-fx-text-fill: rgb(10,100,100);");
 			}
 			
 			Label label_message = new Label(status_message);
@@ -638,6 +641,7 @@ GUI
 			HBox layout_contact = new HBox(5);
 			layout_contact.setPadding(new Insets(10));
 			layout_contact.getChildren().addAll(layout_contact_sub, button_message);
+			HBox.setHgrow(layout_contact_sub, Priority.ALWAYS);
 			layout_contact.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
 	
 			contents.getChildren().add(layout_contact);
@@ -676,20 +680,22 @@ XMPP
 
 -----------------------------*/
 	public void setup() {
+		setContactListener();
+		setPresence();
 		chat_manager = ChatManager.getInstanceFor(xmpp_connection);
 		multi_user_chat_manager = MultiUserChatManager.getInstanceFor(xmpp_connection);
 		setupChatMessageListener();
 	}
 
-	public boolean signUp(String username, String password) {
+	public boolean signUp() {
 		try {
-			DNSUtil.setDNSResolver(MiniDnsResolver.getInstance());
 			XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
 				.setSecurityMode(XMPPTCPConnectionConfiguration.SecurityMode.disabled)
-				.setXmppDomain(domain)
-				.setHost(domain)
-				.setPort(5222)
+				.setUsernameAndPassword(username, password)
+				.setXmppDomain("alumchat.lol")
+				.setHost("alumchat.lol")
 				.build();
+
 			xmpp_connection = new XMPPTCPConnection(config);
 
 			try {
@@ -698,8 +704,8 @@ XMPP
 				accountManager.sensitiveOperationOverInsecureConnection(true);
 
 				if (accountManager.supportsAccountCreation()) {
-					Localpart localpart = Localpart.from(username);
-					accountManager.createAccount(localpart, password);
+					accountManager.sensitiveOperationOverInsecureConnection(true);
+					accountManager.createAccount(Localpart.from(username), password);
 					System.out.println("Signed up [ " + username + " ]");
 					return true;
 				}
@@ -738,20 +744,19 @@ XMPP
 		}
 	}
 
-	public boolean signIn(String username, String password) {
+	public boolean signIn() {
 		try {
-			DNSUtil.setDNSResolver(MiniDnsResolver.getInstance());
 			XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
 				.setSecurityMode(XMPPTCPConnectionConfiguration.SecurityMode.disabled)
-				.setXmppDomain(domain)
-				.setHost(domain)
-				.setPort(5222)
+				.setUsernameAndPassword(username, password)
+				.setXmppDomain("alumchat.lol")
+				.setHost("alumchat.lol")
 				.build();
+
 			xmpp_connection = new XMPPTCPConnection(config);
 
 			try {
-				xmpp_connection.connect();
-				xmpp_connection.login(username, password);
+				xmpp_connection.connect().login();
 				System.out.println(username + " : Logged in");
 				return true;
 			}
@@ -827,16 +832,19 @@ XMPP
 		}
 	}
 
-	public boolean definePresence(String username, String message) {
+	public boolean setPresence() {
 		try {
-			Presence presence = new Presence(Presence.Type.available);
-			presence.setStatus(message);
+			Presence presence = PresenceBuilder.buildPresence()
+			.ofType(Type.available)    // Ajustar el tipo de presencia
+			.setMode(Mode.available)             // Establece el modo de presencia (available, away, etc.)
+			.setStatus(status_message)  // Establece el mensaje de estado
+			.build();
 			xmpp_connection.sendStanza(presence);
-			System.out.println("Status message set [ " + message + " ]");
+			System.out.println("Status message set [ " + status_message + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error defining status message [ " + message + " ] for [ " + username + user_domain + " ]  |  " + e.getMessage());
+			System.out.println("Error defining status message [ " + status_message + " ] for [ " + username + user_domain + " ]  |  " + e.getMessage());
 			e.printStackTrace();
 			return false;
 		}
@@ -1012,6 +1020,7 @@ XMPP
 
 	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, TextField field_user) {
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
+		roster.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
 
 		roster.addRosterListener(new RosterListener() {
 			@Override
@@ -1034,36 +1043,51 @@ XMPP
 		guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster);
 	}
 
-	private void getConnectedUsers(VBox contents) {
-		Roster roster = Roster.getInstanceFor(xmpp_connection);
-
-		roster.addRosterListener(new RosterListener() {
+	private void setContactListener() {
+		xmpp_connection.addAsyncStanzaListener(new StanzaListener() {
 			@Override
-			public void entriesAdded(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateConnectedUsers(contents, roster));
+			public void processStanza(Stanza packet) {
+				Presence presence = (Presence) packet;
+				if (presence.getType() == Presence.Type.subscribe) {
+					Platform.runLater(() -> {
+						try {
+							Presence subscribedPresence = PresenceBuilder.buildPresence()
+								.ofType(Presence.Type.subscribed)
+								.to(presence.getFrom())
+								.build();
+							xmpp_connection.sendStanza(subscribedPresence);
+							addContact(presence.getFrom().asBareJid().toString());
+							System.out.println("Accepted Contact Request [ " + presence.getFrom().asBareJid().toString() + " ]");
+						}
+						catch (Exception e) {
+							System.out.println("Error accepting contact request from [ " + presence.getFrom().asBareJid().toString() + " ]  |  " + e.getMessage());
+							e.printStackTrace();
+							
+							Alert alert = new Alert(AlertType.WARNING);
+							alert.setTitle("Warning");
+							alert.setHeaderText("Error");
+							alert.setContentText("Error accepting contact request from [ " + presence.getFrom().asBareJid().toString() + " ]  |  " + e.getMessage());
+							alert.showAndWait();
+						}
+					});
+				}
 			}
-			@Override
-			public void entriesUpdated(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateConnectedUsers(contents, roster));
-			}
-			@Override
-			public void entriesDeleted(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateConnectedUsers(contents, roster));
-			}
-			@Override
-			public void presenceChanged(Presence presence) {
-				Platform.runLater(() -> guiUpdateConnectedUsers(contents, roster));
-			}
-		});
-		guiUpdateConnectedUsers(contents, roster);
+		}, new StanzaTypeFilter(Presence.class));
 	}
 
 	public boolean addContact(String user_jid) {
 		try {
-			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
-			roster.createEntry(jid, user_jid, null);
-			System.out.println("Contact added [ " + user_jid + " ]");
+			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
+			if (!roster.contains(jid)) {
+				Presence subscribe = PresenceBuilder.buildPresence()
+					.ofType(Presence.Type.subscribe)
+					.to(jid)
+					.build();
+
+				xmpp_connection.sendStanza(subscribe);
+				System.out.println("Added Contact  [ " + user_jid + " ]");
+				}
 			return true;
 		}
 		catch (Exception e) {
@@ -1084,6 +1108,7 @@ XMPP
 		try {
 			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
+			roster.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
 			RosterEntry entry = roster.getEntry(jid);
 			roster.removeEntry(entry);
 			System.out.println("Deleted contact [ " + user_jid + " ]");
