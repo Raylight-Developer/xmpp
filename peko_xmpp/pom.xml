@@ -11,6 +11,13 @@
 		<maven.compiler.target>11</maven.compiler.target>
 	</properties>
 	<dependencies>
+
+		<dependency>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-javadoc-plugin</artifactId>
+			<version>3.6.0</version>
+		</dependency>
+
 	<!-- JXMPP -->
 		<dependency>
 			<groupId>org.jxmpp</groupId>

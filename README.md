@@ -1,5 +1,11 @@
 Alejandro Martínez - 21430
 
+```bash
+mvn clean install
+mvn javadoc::javadoc
+mvn exec:java
+```
+
 # Funciones
 ### Administración de cuentas
 1) Registrar una nueva cuenta en el servidor
@@ -21,12 +27,12 @@ Alejandro Martínez - 21430
 ### Comunicación
 1) Mostrar todos los usuarios/contactos y su estado
 	```java
-	public void getConnectedUsers(VBox contents); // TODO <Server permissions?>
 	private void getContacts(VBox contents);
 	```
 2) Agregar un usuario a los contactos
 	```java
 	public boolean addContact(String user_jid);
+	public boolean removeContact(String user_jid);
 	```
 3) Mostrar detalles de contacto de un usuario
 	```java
@@ -40,7 +46,7 @@ Alejandro Martínez - 21430
 	```
 5) Participar en conversaciones grupales
 	```java
-	private boolean joinRoom(String room_jid); // TODO <Only works for the same user, server permissions?>
+	private boolean joinRoom(String room_jid); // TODO <Only works for the same user, add users: admin / server permissions>
 	private boolean createRoom(String room_jid);
 	private boolean deleteRoom(String room_jid);
 	private void setupRoomMessageListener();
@@ -48,7 +54,7 @@ Alejandro Martínez - 21430
 	```
 6) Definir mensaje de presencia
 	```java
-	public boolean definePresence(String username, String message);
+	public boolean setStatus();
 	```
 7) Enviar/recibir notificaciones
 	```java

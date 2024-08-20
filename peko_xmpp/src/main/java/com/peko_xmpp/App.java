@@ -18,9 +18,7 @@ import org.jivesoftware.smackx.iqregister.AccountManager;
 import org.jivesoftware.smackx.muc.*;
 
 import org.jivesoftware.smack.MessageListener;
-import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.StanzaListener;
-import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.*;
 import org.jivesoftware.smack.packet.Presence.*;
 import org.jivesoftware.smack.roster.*;
@@ -30,7 +28,6 @@ import org.jivesoftware.smack.tcp.*;
 
 // XMPP Lib
 import org.jxmpp.jid.parts.*;
-import org.jxmpp.stringprep.XmppStringprepException;
 import org.jxmpp.jid.impl.*;
 import org.jxmpp.jid.*;
 
@@ -57,7 +54,9 @@ public class App extends Application {
 	private String username = "mar21430";
 	private String nickname = "Pekoyo";
 	private String password = "Test_123";
-	private String status_message = "Soy Don Peko";
+
+	private Mode status = Mode.available;
+	private String status_message = "Pe↑ko↓ pe↑ko↓ pe↑ko↓ pe↑ko↓";
 
 	@Override
 	public void start(Stage stage) throws IOException {
@@ -129,7 +128,6 @@ GUI
 				setup();
 				guiHomeScreen(scene);
 			}
-			//guiHomeScreen(scene);
 		});
 
 		button_signup.setOnAction(event -> {
@@ -138,6 +136,28 @@ GUI
 			if (signUp()) {
 				setup();
 				guiHomeScreen(scene);
+			}
+		});
+
+		field_username.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+			if (event.getCode() == KeyCode.ENTER) {
+				username = field_username.getText();
+				password = field_password.getText();
+				if (signIn()) {
+					setup();
+					guiHomeScreen(scene);
+				}
+			}
+		});
+
+		field_password.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+			if (event.getCode() == KeyCode.ENTER) {
+				username = field_username.getText();
+				password = field_password.getText();
+				if (signIn()) {
+					setup();
+					guiHomeScreen(scene);
+				}
 			}
 		});
 	}
@@ -245,16 +265,8 @@ GUI
 		Label label_messages = new Label("Chat");
 		label_messages.setStyle("-fx-max-width: Infinity;");
 
-		TextField field_user_jid = new TextField(username);
-		field_user_jid.setPromptText("Chat to user with JID...");
-		field_user_jid.setStyle("-fx-max-width: Infinity;");
-		field_user_jid.setAlignment(Pos.CENTER_RIGHT);
-
-		Label label_address = new Label(user_domain);
+		Label label_address = new Label("NONE" + user_domain);
 		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
-
-		Button button_join_chat = new Button("Load Chat");
-		button_join_chat.setStyle("-fx-max-width: Infinity;");
 
 		VBox layout_message_area = new VBox(10);
 		layout_message_area.setPadding(new Insets(10));
@@ -262,18 +274,15 @@ GUI
 		scroll_messages.setStyle("-fx-max-height: Infinity; fx-max-width: Infinity;");
 		scroll_messages.setFitToWidth(true);
 		scroll_messages.setFitToHeight(true);
+		scroll_messages.setVisible(false);
 
 		TextArea field_message = new TextArea();
 		field_message.setStyle("-fx-max-height: Infinity;");
 		field_message.setPromptText("Message...");
 		field_message.setVisible(false);
 
-		HBox layout_message_header = new HBox(10);
-		layout_message_header.getChildren().addAll(field_user_jid, label_address, button_join_chat);
-		HBox.setHgrow(field_user_jid, Priority.ALWAYS);
-
 		VBox layout_message = new VBox(10);
-		layout_message.getChildren().addAll(label_messages, layout_message_header, scroll_messages, field_message);
+		layout_message.getChildren().addAll(label_messages, label_address, scroll_messages, field_message);
 		layout_message.setStyle("-fx-pref-width: 800px;");
 		VBox.setVgrow(scroll_messages, Priority.ALWAYS);
 //
@@ -305,35 +314,9 @@ GUI
 			dialog.showAndWait().ifPresent(jid -> removeContact(jid + user_domain));
 		});
 
-		button_join_chat.setOnAction(event -> {
-			layout_message_area.getChildren().clear();
-			field_message.setVisible(true);
-
-			for (Pair<String,String> message: chatMessages) {
-				if (message.getKey().equals(field_user_jid.getText() + user_domain)  || message.getKey().equals(username)) {
-						guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
-				}
-				else {
-					System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + field_user_jid.getText() + user_domain + " ]  |  " + message.getValue());
-				}
-			}
-
-			chatMessages.addListener((ListChangeListener<Pair<String, String>>) change -> {
-				layout_message_area.getChildren().clear();
-				for (Pair<String,String> message: chatMessages) {
-					if (message.getKey().equals(field_user_jid.getText() + user_domain) || message.getKey().equals(username)) {
-							guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
-					}
-					else {
-						System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + field_user_jid.getText() + user_domain + " ]  |  " + message.getValue());
-					}
-				}
-			});
-		});
-
 		field_message.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
 			if (event.getCode() == KeyCode.ENTER) {
-				sendChatMessage(field_user_jid.getText(), field_message.getText());
+				sendChatMessage(label_address.getText(), field_message.getText());
 				Platform.runLater(() -> {
 					chatMessages.add(new Pair<String,String>(username, field_message.getText()));
 					field_message.clear();
@@ -342,7 +325,7 @@ GUI
 			}
 		});
 
-		getContacts(layout_contacts_list_content, layout_message_area, field_message, field_user_jid);
+		getContacts(layout_contacts_list_content, layout_message_area, field_message, scroll_messages, label_address);
 	}
 
 	private void guiRoomScreen(Scene scene, VBox container, Label label) {
@@ -381,6 +364,7 @@ GUI
 		scroll_messages.setStyle("-fx-max-height: Infinity; fx-max-width: Infinity;");
 		scroll_messages.setFitToWidth(true);
 		scroll_messages.setFitToHeight(true);
+		scroll_messages.setVisible(false);
 
 		TextArea field_message = new TextArea();
 		field_message.setStyle("-fx-max-height: Infinity;");
@@ -408,6 +392,7 @@ GUI
 			if (joinRoom(field_room_jid.getText() + room_domain)) {
 				layout_message_area.getChildren().clear();
 				field_message.setVisible(true);
+				scroll_messages.setVisible(true);
 
 				setupRoomMessageListener();
 
@@ -425,6 +410,7 @@ GUI
 		button_delete_room.setOnAction(event -> {
 			if (deleteRoom(field_room_jid.getText() + room_domain)) {
 				field_message.setVisible(false);
+				scroll_messages.setVisible(false);
 				layout_message_area.getChildren().clear();
 			}
 		});
@@ -454,7 +440,15 @@ GUI
 		HBox layout_presence_set = new HBox(10);
 		layout_presence_set.getChildren().addAll(field_presence, button_set_presence);
 		HBox.setHgrow(field_presence, Priority.ALWAYS);
+	//
+		Label label_status_options = new Label("Status");
+		label_status_options.setStyle("-fx-max-width: Infinity;");
 
+		ComboBox<Mode> combobox_status_options = new ComboBox<>();
+		combobox_status_options.setStyle("-fx-max-width: Infinity;");
+		combobox_status_options.getItems().addAll(Mode.available, Mode.away, Mode.chat, Mode.dnd, Mode.xa);
+		combobox_status_options.setValue(Mode.available);
+	//
 		Label label_nickname = new Label("Nickname");
 		label_nickname.setStyle("-fx-max-width: Infinity;");
 
@@ -467,9 +461,9 @@ GUI
 		HBox layout_nickname_set = new HBox(10);
 		layout_nickname_set.getChildren().addAll(field_nickname, button_set_nickname);
 		HBox.setHgrow(field_nickname, Priority.ALWAYS);
-
+//
 		VBox layout_account_settings = new VBox(10);
-		layout_account_settings.getChildren().addAll(label_presence, layout_presence_set, label_nickname, layout_nickname_set);
+		layout_account_settings.getChildren().addAll(label_presence, layout_presence_set, label_status_options, combobox_status_options, label_nickname, layout_nickname_set);
 //
 		Button button_close_account = new Button("Delete Account");
 		button_close_account.setStyle("-fx-max-width: Infinity; -fx-background-color: rgb(100,50,50);");
@@ -494,12 +488,26 @@ GUI
 
 		button_set_presence.setOnAction(event -> {
 			status_message = field_presence.getText();
-			setPresence();
+			setStatus();
+		});
+
+		button_set_presence.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+			if (event.getCode() == KeyCode.ENTER) {
+				status_message = field_presence.getText();
+				setStatus();
+			}
 		});
 
 		button_set_nickname.setOnAction(event -> {
 			nickname = field_nickname.getText();
 			label.setText("My Account  |  " + username + "  |  " + nickname);
+		});
+
+		button_set_nickname.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+			if (event.getCode() == KeyCode.ENTER) {
+				nickname = field_nickname.getText();
+				label.setText("My Account  |  " + username + "  |  " + nickname);
+			}
 		});
 
 		button_close_account.setOnAction(event -> {
@@ -516,10 +524,10 @@ GUI
 			}
 		});
 
-		Roster roster = Roster.getInstanceFor(xmpp_connection);
-		roster.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
-		Presence presence_message = roster.getPresence(xmpp_connection.getUser().asBareJid());
-		field_presence.setText(presence_message.getStatus());
+		combobox_status_options.setOnAction(event -> {
+			status = combobox_status_options.getValue();
+			setStatus();
+		});
 	}
 
 	private void guiAddIncomingMessage(String sender_username, String message, VBox contents) {
@@ -554,44 +562,7 @@ GUI
 		}
 	}
 
-	private void guiUpdateConnectedUsers(VBox contents, Roster roster) {
-		contents.getChildren().clear();
-
-		for (RosterEntry entry : roster.getEntries()) {
-			Presence presence = roster.getPresence(entry.getJid());
-			String user_status = presence.getType().toString();
-			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
-	
-			Label label_jid = new Label(entry.getJid().toString());
-			label_jid.setStyle("-fx-max-width: Infinity;");
-			
-			Label label_status = new Label(user_status);
-			if ("available".equals(user_status)) {
-				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
-			} else if ("unavailable".equals(user_status)) {
-				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
-			} else {
-				label_status.setStyle("-fx-text-fill: rgb(10,100,100);");
-			}
-			
-			Label label_message = new Label(status_message);
-			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
-			label_message.setAlignment(Pos.CENTER_RIGHT);
-	
-			HBox layout_contact_sub = new HBox(5);
-			layout_contact_sub.getChildren().addAll(label_jid, label_status);
-			HBox.setHgrow(label_jid, Priority.ALWAYS);
-	
-			VBox layout_contact = new VBox(5);
-			layout_contact.setPadding(new Insets(10));
-			layout_contact.getChildren().addAll(layout_contact_sub, label_message);
-			layout_contact.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
-	
-			contents.getChildren().add(layout_contact);
-		}
-	}
-
-	private void guiUpdateContacts(VBox contents, VBox layout_message_area, TextArea field_message, TextField field_user, Roster roster) {
+	private void guiUpdateContacts(VBox contents, VBox layout_message_area, TextArea field_message, ScrollPane scroll_messages, Label label_address, Roster roster) {
 		contents.getChildren().clear();
 
 		for (RosterEntry entry : roster.getEntries()) {
@@ -611,7 +582,7 @@ GUI
 			} else {
 				label_status.setStyle("-fx-text-fill: rgb(10,100,100);");
 			}
-			
+
 			Label label_message = new Label(status_message);
 			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
 			label_message.setAlignment(Pos.CENTER_RIGHT);
@@ -640,7 +611,10 @@ GUI
 			
 			HBox layout_contact = new HBox(5);
 			layout_contact.setPadding(new Insets(10));
-			layout_contact.getChildren().addAll(layout_contact_sub, button_message);
+			layout_contact.getChildren().add(layout_contact_sub);
+			if ("available".equals(user_status)) {
+				layout_contact.getChildren().add(button_message);
+			}
 			HBox.setHgrow(layout_contact_sub, Priority.ALWAYS);
 			layout_contact.setStyle("-fx-background-color: rgb(50,50,50); -fx-background-radius: 5px;");
 	
@@ -649,7 +623,8 @@ GUI
 			button_message.setOnAction(event -> {
 				layout_message_area.getChildren().clear();
 				field_message.setVisible(true);
-				field_user.setText(user_id.replace(user_domain, ""));
+				scroll_messages.setVisible(true);
+				label_address.setText(user_id);
 
 				for (Pair<String,String> message: chatMessages) {
 					if (message.getKey().equals(user_id)  || message.getKey().equals(username)) {
@@ -681,7 +656,7 @@ XMPP
 -----------------------------*/
 	public void setup() {
 		setContactListener();
-		setPresence();
+		setStatus();
 		chat_manager = ChatManager.getInstanceFor(xmpp_connection);
 		multi_user_chat_manager = MultiUserChatManager.getInstanceFor(xmpp_connection);
 		setupChatMessageListener();
@@ -832,15 +807,15 @@ XMPP
 		}
 	}
 
-	public boolean setPresence() {
+	public boolean setStatus() {
 		try {
 			Presence presence = PresenceBuilder.buildPresence()
-			.ofType(Type.available)    // Ajustar el tipo de presencia
-			.setMode(Mode.available)             // Establece el modo de presencia (available, away, etc.)
-			.setStatus(status_message)  // Establece el mensaje de estado
+			.ofType(Type.available)
+			.setMode(status)
+			.setStatus(status_message)
 			.build();
 			xmpp_connection.sendStanza(presence);
-			System.out.println("Status message set [ " + status_message + " ]");
+			System.out.println("Status set [ " + status.toString() + " ] | [ " + status_message + " ]");
 			return true;
 		}
 		catch (Exception e) {
@@ -853,25 +828,25 @@ XMPP
 	public boolean sendChatMessage(String to_user_jid, String message_body) {
 		try {
 			ChatManager manager = ChatManager.getInstanceFor(xmpp_connection);
-			EntityBareJid jid = JidCreate.entityBareFrom(to_user_jid + user_domain);
+			EntityBareJid jid = JidCreate.entityBareFrom(to_user_jid);
 			Chat chat = manager.chatWith(jid);
 
 			Message message = new Message(jid, Message.Type.chat);
 			message.setBody(message_body);
 			chat.send(message);
 
-			System.out.println("Menssage [ " + message_body + " ] sent to [ " + to_user_jid + user_domain + " ] by [ " + username + user_domain + " ]");
+			System.out.println("Menssage [ " + message_body + " ] sent to [ " + to_user_jid + " ] by [ " + username + user_domain + " ]");
 			return true;
 		}
 		catch (Exception e) {
-			System.out.println("Error sending message to [ " + to_user_jid + user_domain + " ] by [ " + username + user_domain+ " ]  |  " + e.getMessage());
+			System.out.println("Error sending message to [ " + to_user_jid + " ] by [ " + username + user_domain+ " ]  |  " + e.getMessage());
 			e.printStackTrace();
 
 			Alert alert = new Alert(AlertType.WARNING);
 			
 			alert.setTitle("Warning");
 			alert.setHeaderText("Error");
-			alert.setContentText("Error sending message to [ " + to_user_jid + user_domain + "] by [ " + username + user_domain + " ]  |  " + e.getMessage());
+			alert.setContentText("Error sending message to [ " + to_user_jid + "] by [ " + username + user_domain + " ]  |  " + e.getMessage());
 			alert.showAndWait();
 
 			return false;
@@ -1018,29 +993,29 @@ XMPP
 		room_chat_listeners.put(multi_user_chat.getRoom().toString(), newListener);
 	}
 
-	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, TextField field_user) {
+	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, ScrollPane scroll_messages, Label label_address) {
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
 		roster.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
 
 		roster.addRosterListener(new RosterListener() {
 			@Override
 			public void entriesAdded(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster));
 			}
 			@Override
 			public void entriesUpdated(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster));
 			}
 			@Override
 			public void entriesDeleted(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster));
 			}
 			@Override
 			public void presenceChanged(Presence presence) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster));
 			}
 		});
-		guiUpdateContacts(contents, layout_message_area, field_message, field_user, roster);
+		guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster);
 	}
 
 	private void setContactListener() {
@@ -1087,7 +1062,7 @@ XMPP
 
 				xmpp_connection.sendStanza(subscribe);
 				System.out.println("Added Contact  [ " + user_jid + " ]");
-				}
+			}
 			return true;
 		}
 		catch (Exception e) {
