@@ -5,6 +5,8 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.input.*;
+import javafx.animation.FadeTransition;
+import javafx.animation.PauseTransition;
 import javafx.application.*;
 import javafx.collections.*;
 import javafx.scene.text.*;
@@ -36,6 +38,11 @@ import java.util.*;
 import java.io.*;
 
 public class App extends Application {
+	private Stage main_stage;
+	private VBox layout_notifications;
+	private Button button_notifications;
+	private boolean notifications_shown;
+
 	private XMPPTCPConnection xmpp_connection;
 	private MultiUserChatManager multi_user_chat_manager;
 	private MultiUserChat multi_user_chat;
@@ -60,8 +67,9 @@ public class App extends Application {
 
 	@Override
 	public void start(Stage stage) throws IOException {
-		stage.setTitle("XMPP Chat");
-		stage.setOnCloseRequest(event -> {
+		main_stage = stage;
+		main_stage.setTitle("XMPP Chat");
+		main_stage.setOnCloseRequest(event -> {
 			if (xmpp_connection != null && xmpp_connection.isConnected()) {
 				xmpp_connection.removeAllStanzaAcknowledgedListeners();
 				signOut();
@@ -75,8 +83,8 @@ public class App extends Application {
 		scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
 		scene.setRoot(root);
 
-		stage.setScene(scene);
-		stage.show();
+		main_stage.setScene(scene);
+		main_stage.show();
 
 		guiLoginScreen(scene);
 	}
@@ -167,9 +175,11 @@ GUI
 		label.setStyle("-fx-max-width: Infinity; -fx-font-size: 20px;");
 
 		Button button_logout = new Button("Log Out");
+		
+		button_notifications = new Button(" 🔔 ");
 
 		HBox layout_header = new HBox(10);
-		layout_header.getChildren().addAll(label, button_logout);
+		layout_header.getChildren().addAll(label, button_logout, button_notifications);
 		HBox.setHgrow(label, Priority.ALWAYS);
 
 		Button button_chat = new Button("Chat");
@@ -183,6 +193,7 @@ GUI
 
 		VBox layout_main = new VBox(10);
 		layout_main.setAlignment(Pos.TOP_CENTER);
+		layout_main.setStyle("-fx-max-width: Infinity;");
 
 		HBox layout_menu = new HBox(10);
 		layout_menu.setAlignment(Pos.CENTER);
@@ -191,13 +202,26 @@ GUI
 		HBox.setHgrow(button_group_chat, Priority.ALWAYS);
 		HBox.setHgrow(button_account, Priority.ALWAYS);
 
+		layout_notifications = new VBox(10);
+		layout_notifications.setPadding(new Insets(10));
+		ScrollPane scroll_notifications = new ScrollPane(layout_notifications);
+		scroll_notifications.setStyle("-fx-max-height: Infinity;");
+		scroll_notifications.setPrefWidth(800);
+		scroll_notifications.setFitToWidth(true);
+		scroll_notifications.setFitToHeight(true);
+		notifications_shown = false;
+
+		HBox sub_layout = new HBox(10);
+		sub_layout.getChildren().addAll(layout_main);
+		HBox.setHgrow(layout_main, Priority.ALWAYS);
+
 		VBox layout_container = new VBox(10);
 		layout_container.setPadding(new Insets(10));
 		layout_container.setAlignment(Pos.TOP_CENTER);
 		layout_container.getChildren().add(layout_header);
-		layout_container.getChildren().add(layout_main);
+		layout_container.getChildren().add(sub_layout);
 		layout_container.getChildren().add(layout_menu);
-		VBox.setVgrow(layout_main, Priority.ALWAYS);
+		VBox.setVgrow(sub_layout, Priority.ALWAYS);
 
 		StackPane root = new StackPane();
 		root.getChildren().add(layout_container);
@@ -227,6 +251,32 @@ GUI
 			if (result.isPresent() && result.get() == ButtonType.OK) {
 				signOut();
 				guiLoginScreen(scene);
+			}
+		});
+
+		button_notifications.setOnAction(event -> {
+			if (!sub_layout.getChildren().contains(scroll_notifications)) {
+				sub_layout.getChildren().add(scroll_notifications);
+				button_notifications.setStyle("-fx-background-color: rgb(25,25,25);");
+				notifications_shown = true;
+				for (Node node : layout_notifications.getChildren()) {
+					PauseTransition pause = new PauseTransition(Duration.seconds(3));
+					pause.setOnFinished(e -> {
+						FadeTransition fadeOut = new FadeTransition(Duration.seconds(1), node);
+						fadeOut.setFromValue(1.0);
+						fadeOut.setToValue(0.0);
+						fadeOut.setOnFinished(ee -> {
+							layout_notifications.getChildren().remove(node);
+						});
+						fadeOut.play();
+					});
+					pause.play();
+				}
+			}
+			else {
+				sub_layout.getChildren().remove(scroll_notifications);
+				button_notifications.setStyle("-fx-background-color: rgb(25,25,25);");
+				notifications_shown = false;
 			}
 		});
 
@@ -260,6 +310,7 @@ GUI
 
 		VBox layout_contacts = new VBox(10);
 		layout_contacts.getChildren().addAll(label_contact, layout_contacts_header, scroll_contacts);
+		layout_contacts.setStyle("-fx-min-width: 400px;");
 		VBox.setVgrow(scroll_contacts, Priority.ALWAYS);
 //
 		Label label_messages = new Label("Chat");
@@ -569,7 +620,7 @@ GUI
 			Presence presence = roster.getPresence(entry.getJid());
 			String user_status = presence.getType().toString();
 			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
-			String user_id = entry.getJid().toString();
+			String user_id = entry.getJid().toString().replace(user_domain, "");
 	
 			Label label_jid = new Label(user_id);
 			label_jid.setStyle("-fx-max-width: Infinity;");
@@ -647,6 +698,27 @@ GUI
 					}
 				});
 			});
+		}
+	}
+
+	private void addNotification(String value) {
+		Label label = new Label(value);
+		layout_notifications.getChildren().add(label);
+		if (!notifications_shown) {
+			button_notifications.setStyle("-fx-background-color: rgb(50,150,150);");
+		}
+		else {
+			PauseTransition pause = new PauseTransition(Duration.seconds(3));
+			pause.setOnFinished(e -> {
+				FadeTransition fadeOut = new FadeTransition(Duration.seconds(1), label);
+				fadeOut.setFromValue(1.0);
+				fadeOut.setToValue(0.0);
+				fadeOut.setOnFinished(ee -> {
+					layout_notifications.getChildren().remove(label);
+				});
+				fadeOut.play();
+			});
+			pause.play();
 		}
 	}
 /*-----------------------------
@@ -857,6 +929,7 @@ XMPP
 		chat_manager.addIncomingListener((from, message, chat) -> {
 			Platform.runLater(() -> {
 				chatMessages.add(new Pair<String,String>(from.toString(), message.getBody()));
+				addNotification("New Message From [ " + from.toString() + " ]  |  " + message.getBody());
 			});
 		});
 	}
@@ -871,11 +944,17 @@ XMPP
 				@Override
 				public void joined(EntityFullJid participant) {
 					System.out.println("[ " +participant + " ] joined the chat");
+					Platform.runLater(() -> {
+						addNotification(participant + " joined the chat");
+					});
 				}
 
 				@Override
 				public void left(EntityFullJid participant) {
-					System.out.println("[ " +participant + " ] left the chat");
+					System.out.println("[ " + participant + " ] left the chat");
+					Platform.runLater(() -> {
+						addNotification(participant + " left the chat");
+					});
 				}
 			});
 			System.out.println("You joined the chatroom [ " + room_jid + " ]");
@@ -910,11 +989,19 @@ XMPP
 				@Override
 				public void joined(EntityFullJid participant) {
 					System.out.println("[ " +participant + " ] joined the chat");
+
+					Platform.runLater(() -> {
+						addNotification(participant + " joined the chat");
+					});
 				}
 
 				@Override
 				public void left(EntityFullJid participant) {
 					System.out.println("[ " +participant + " ] left the chat");
+
+					Platform.runLater(() -> {
+						addNotification(participant + " left the chat");
+					});
 				}
 			});
 			System.out.println("Created and joined chatroom [ " + room_jid + " ]");
@@ -987,6 +1074,7 @@ XMPP
 		MessageListener newListener = message -> {
 			Platform.runLater(() -> {
 				roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
+				addNotification("New Message to Group [ " + multi_user_chat.getRoom().toString() + " ] [ " + message.getFrom().getResourceOrEmpty().toString() + " ]  |  " +  message.getBody());
 			});
 		};
 		multi_user_chat.addMessageListener(newListener);
@@ -1033,6 +1121,8 @@ XMPP
 							xmpp_connection.sendStanza(subscribedPresence);
 							addContact(presence.getFrom().asBareJid().toString());
 							System.out.println("Accepted Contact Request [ " + presence.getFrom().asBareJid().toString() + " ]");
+							
+							addNotification("Accepted Contact Request [ " + presence.getFrom().asBareJid().toString() + " ]");
 						}
 						catch (Exception e) {
 							System.out.println("Error accepting contact request from [ " + presence.getFrom().asBareJid().toString() + " ]  |  " + e.getMessage());

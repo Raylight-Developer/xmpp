@@ -58,7 +58,7 @@ mvn exec:java
 	```
 7) Enviar/recibir notificaciones
 	```java
-	// TODO
+	private void addNotification(String value);
 	```
 8) Enviar/recibir archivos
 	```java
