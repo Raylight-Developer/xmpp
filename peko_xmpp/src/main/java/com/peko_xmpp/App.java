@@ -17,16 +17,17 @@ import javafx.util.*;
 
 // Smack Lib
 import org.jivesoftware.smackx.iqregister.AccountManager;
+import org.jivesoftware.smackx.xdata.packet.*;
+import org.jivesoftware.smackx.xdata.form.*;
 import org.jivesoftware.smackx.muc.*;
 
-import org.jivesoftware.smack.MessageListener;
-import org.jivesoftware.smack.StanzaListener;
-import org.jivesoftware.smack.packet.*;
 import org.jivesoftware.smack.packet.Presence.*;
+import org.jivesoftware.smack.packet.*;
 import org.jivesoftware.smack.roster.*;
 import org.jivesoftware.smack.chat2.*;
-import org.jivesoftware.smack.filter.StanzaTypeFilter;
+import org.jivesoftware.smack.filter.*;
 import org.jivesoftware.smack.tcp.*;
+import org.jivesoftware.smack.*;
 
 // XMPP Lib
 import org.jxmpp.jid.parts.*;
@@ -618,25 +619,33 @@ GUI
 
 		for (RosterEntry entry : roster.getEntries()) {
 			Presence presence = roster.getPresence(entry.getJid());
-			String user_status = presence.getType().toString();
+			String user_type = presence.getType().toString();
+			String user_status = presence.getMode().toString();
 			String status_message = presence.getStatus() != null ? presence.getStatus() : "Sin mensaje de status/presencia.";
 			String user_id = entry.getJid().toString().replace(user_domain, "");
 	
 			Label label_jid = new Label(user_id);
 			label_jid.setStyle("-fx-max-width: Infinity;");
-			
-			Label label_status = new Label(user_status);
-			if ("available".equals(user_status)) {
-				label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
-			} else if ("unavailable".equals(user_status)) {
-				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
-			} else {
-				label_status.setStyle("-fx-text-fill: rgb(10,100,100);");
-			}
 
 			Label label_message = new Label(status_message);
 			label_message.setStyle("-fx-max-width: Infinity; -fx-font-size: 12px;");
 			label_message.setAlignment(Pos.CENTER_RIGHT);
+
+			Label label_status = new Label(user_status);
+			if ("available".equals(user_type)) {
+				if ("available".equals(user_status)) {
+					label_status.setStyle("-fx-text-fill: rgb(100,250,100);");
+				} else if ("away".equals(user_status)) {
+					label_status.setStyle("-fx-text-fill: rgb(250,250,100);");
+				} else {
+					label_status.setStyle("-fx-text-fill: rgb(100,200,250);");
+				}
+			}
+			else {
+				label_status.setText("unavailable");
+				label_message.setText("");
+				label_status.setStyle("-fx-text-fill: rgb(250,100,100);");
+			}
 
 			Button button_message = new Button();
 			button_message.setText("✉");
@@ -657,13 +666,16 @@ GUI
 			HBox.setHgrow(label_jid, Priority.ALWAYS);
 	
 			VBox layout_contact_sub = new VBox(5);
-			layout_contact_sub.getChildren().addAll(layout_contact_sub_sub, label_message);
+			layout_contact_sub.getChildren().add(layout_contact_sub_sub);
+			if ("available".equals(user_type)) {
+				layout_contact_sub.getChildren().addAll(label_message);
+			}
 			layout_contact_sub.setStyle("-fx-max-width: Infinity;");
 			
 			HBox layout_contact = new HBox(5);
 			layout_contact.setPadding(new Insets(10));
 			layout_contact.getChildren().add(layout_contact_sub);
-			if ("available".equals(user_status)) {
+			if ("available".equals(user_status) && "available".equals(user_type)) {
 				layout_contact.getChildren().add(button_message);
 			}
 			HBox.setHgrow(layout_contact_sub, Priority.ALWAYS);
@@ -943,9 +955,9 @@ XMPP
 			multi_user_chat.addParticipantStatusListener(new ParticipantStatusListener() {
 				@Override
 				public void joined(EntityFullJid participant) {
-					System.out.println("[ " +participant + " ] joined the chat");
+					System.out.println("[ " + participant + " ] joined the chat");
 					Platform.runLater(() -> {
-						addNotification(participant + " joined the chat");
+						addNotification(participant + " joined the group chat [ " + room_jid + " ]");
 					});
 				}
 
@@ -953,7 +965,7 @@ XMPP
 				public void left(EntityFullJid participant) {
 					System.out.println("[ " + participant + " ] left the chat");
 					Platform.runLater(() -> {
-						addNotification(participant + " left the chat");
+						addNotification(participant + " left the group chat [ " + room_jid + " ]");
 					});
 				}
 			});
@@ -983,24 +995,32 @@ XMPP
 			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
 			multi_user_chat = multi_user_chat_manager.getMultiUserChat(roomJid);
 			multi_user_chat.createOrJoin(Resourcepart.from(nickname));
-			multi_user_chat.sendConfigurationForm(multi_user_chat.getConfigurationForm().getFillableForm());
+
+			Form form = multi_user_chat.getConfigurationForm();
+			FillableForm submitForm = form.getFillableForm();
+			submitForm.setAnswer("muc#roomconfig_publicroom", true);
+			submitForm.setAnswer("muc#roomconfig_persistentroom", true);
+			submitForm.setAnswer("muc#roomconfig_membersonly", false);
+			submitForm.setAnswer("muc#roomconfig_moderatedroom", false);
+			submitForm.setAnswer("muc#roomconfig_whois", "anyone");
+			multi_user_chat.sendConfigurationForm(submitForm);
 
 			multi_user_chat.addParticipantStatusListener(new ParticipantStatusListener() {
 				@Override
 				public void joined(EntityFullJid participant) {
-					System.out.println("[ " +participant + " ] joined the chat");
+					System.out.println("[ " + participant + " ] joined the chat");
 
 					Platform.runLater(() -> {
-						addNotification(participant + " joined the chat");
+						addNotification(participant + " joined the group chat [ " + room_jid + " ]");
 					});
 				}
 
 				@Override
 				public void left(EntityFullJid participant) {
-					System.out.println("[ " +participant + " ] left the chat");
+					System.out.println("[ " + participant + " ] left the group chat [ ");
 
 					Platform.runLater(() -> {
-						addNotification(participant + " left the chat");
+						addNotification(participant + " left the group chat [ " + room_jid + " ]");
 					});
 				}
 			});
@@ -1074,8 +1094,11 @@ XMPP
 		MessageListener newListener = message -> {
 			Platform.runLater(() -> {
 				roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
-				addNotification("New Message to Group [ " + multi_user_chat.getRoom().toString() + " ] [ " + message.getFrom().getResourceOrEmpty().toString() + " ]  |  " +  message.getBody());
-			});
+				
+				if (message.getBody() != null && message.getFrom().getResourceOrEmpty().toString() != null) {
+					addNotification("New Group Message [ " + multi_user_chat.getRoom().toString() + " ] from [ " + message.getFrom().getResourceOrEmpty().toString() + " ]  |  " +  message.getBody());
+				}
+				});
 		};
 		multi_user_chat.addMessageListener(newListener);
 		room_chat_listeners.put(multi_user_chat.getRoom().toString(), newListener);
