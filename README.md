@@ -62,6 +62,6 @@ mvn exec:java
 	```
 8) Enviar/recibir archivos
 	```java
-	public boolean sendFile(File file); // TODO
-	public File receiveFile(); // TODO
+	public void sendFile(String to_jid, File file);
+	public void receiveFile(String file_content);
 	```

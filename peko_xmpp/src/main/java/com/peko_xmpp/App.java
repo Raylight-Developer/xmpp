@@ -35,6 +35,8 @@ import org.jxmpp.jid.impl.*;
 import org.jxmpp.jid.*;
 
 // Java
+import javax.swing.JFileChooser;
+import java.nio.file.*;
 import java.util.*;
 import java.io.*;
 
@@ -127,6 +129,7 @@ GUI
 
 		StackPane root = new StackPane();
 		root.getChildren().add(layout);
+		root.setStyle("-fx-background-radius: 0px;");
 
 		scene.setRoot(root);
 
@@ -203,6 +206,9 @@ GUI
 		HBox.setHgrow(button_group_chat, Priority.ALWAYS);
 		HBox.setHgrow(button_account, Priority.ALWAYS);
 
+		Label label_notifications = new Label("Notifications");
+		label_notifications.setStyle("-fx-max-width: Infinity;");
+
 		layout_notifications = new VBox(10);
 		layout_notifications.setPadding(new Insets(10));
 		ScrollPane scroll_notifications = new ScrollPane(layout_notifications);
@@ -211,6 +217,10 @@ GUI
 		scroll_notifications.setFitToWidth(true);
 		scroll_notifications.setFitToHeight(true);
 		notifications_shown = false;
+		
+		VBox layout_notification_area = new VBox(10);
+		layout_notification_area.getChildren().addAll(label_notifications, scroll_notifications);
+		VBox.setVgrow(scroll_notifications, Priority.ALWAYS);
 
 		HBox sub_layout = new HBox(10);
 		sub_layout.getChildren().addAll(layout_main);
@@ -226,6 +236,7 @@ GUI
 
 		StackPane root = new StackPane();
 		root.getChildren().add(layout_container);
+		root.setStyle("-fx-background-radius: 0px;");
 
 		scene.setRoot(root);
 
@@ -256,8 +267,8 @@ GUI
 		});
 
 		button_notifications.setOnAction(event -> {
-			if (!sub_layout.getChildren().contains(scroll_notifications)) {
-				sub_layout.getChildren().add(scroll_notifications);
+			if (!sub_layout.getChildren().contains(layout_notification_area)) {
+				sub_layout.getChildren().add(layout_notification_area);
 				button_notifications.setStyle("-fx-background-color: rgb(25,25,25);");
 				notifications_shown = true;
 				for (Node node : layout_notifications.getChildren()) {
@@ -275,7 +286,7 @@ GUI
 				}
 			}
 			else {
-				sub_layout.getChildren().remove(scroll_notifications);
+				sub_layout.getChildren().remove(layout_notification_area);
 				button_notifications.setStyle("-fx-background-color: rgb(25,25,25);");
 				notifications_shown = false;
 			}
@@ -333,8 +344,12 @@ GUI
 		field_message.setPromptText("Message...");
 		field_message.setVisible(false);
 
+		Button button_attach_file = new Button("Send File");
+		button_attach_file.setStyle("-fx-max-width: Infinity;");
+		button_attach_file.setVisible(false);
+
 		VBox layout_message = new VBox(10);
-		layout_message.getChildren().addAll(label_messages, label_address, scroll_messages, field_message);
+		layout_message.getChildren().addAll(label_messages, label_address, scroll_messages, field_message, button_attach_file);
 		layout_message.setStyle("-fx-pref-width: 800px;");
 		VBox.setVgrow(scroll_messages, Priority.ALWAYS);
 //
@@ -368,16 +383,25 @@ GUI
 
 		field_message.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
 			if (event.getCode() == KeyCode.ENTER) {
-				sendChatMessage(label_address.getText(), field_message.getText());
-				Platform.runLater(() -> {
-					chatMessages.add(new Pair<String,String>(username, field_message.getText()));
-					field_message.clear();
-				});
+				sendChatMessage(label_address.getText() + user_domain, field_message.getText());
+				chatMessages.add(new Pair<String,String>(username, field_message.getText()));
+				field_message.clear();
 				event.consume();
 			}
 		});
 
-		getContacts(layout_contacts_list_content, layout_message_area, field_message, scroll_messages, label_address);
+		button_attach_file.setOnAction(event-> {
+			JFileChooser fileChooser = new JFileChooser();
+			fileChooser.setDialogTitle("Select a file");
+			int userSelection = fileChooser.showOpenDialog(null);
+			if (userSelection == JFileChooser.APPROVE_OPTION) {
+				sendFile(label_address.getText() + user_domain, fileChooser.getSelectedFile());
+				chatMessages.add(new Pair<String,String>(username, fileChooser.getSelectedFile().getAbsolutePath()));
+				field_message.clear();
+			}
+		});
+
+		getContacts(layout_contacts_list_content, layout_message_area, field_message, button_attach_file, scroll_messages, label_address);
 	}
 
 	private void guiRoomScreen(Scene scene, VBox container, Label label) {
@@ -614,7 +638,7 @@ GUI
 		}
 	}
 
-	private void guiUpdateContacts(VBox contents, VBox layout_message_area, TextArea field_message, ScrollPane scroll_messages, Label label_address, Roster roster) {
+	private void guiUpdateContacts(VBox contents, VBox layout_message_area, TextArea field_message, Button button_attach_file, ScrollPane scroll_messages, Label label_address, Roster roster) {
 		contents.getChildren().clear();
 
 		for (RosterEntry entry : roster.getEntries()) {
@@ -686,6 +710,7 @@ GUI
 			button_message.setOnAction(event -> {
 				layout_message_area.getChildren().clear();
 				field_message.setVisible(true);
+				button_attach_file.setVisible(true);
 				scroll_messages.setVisible(true);
 				label_address.setText(user_id);
 
@@ -941,7 +966,13 @@ XMPP
 		chat_manager.addIncomingListener((from, message, chat) -> {
 			Platform.runLater(() -> {
 				chatMessages.add(new Pair<String,String>(from.toString(), message.getBody()));
-				addNotification("New Message From [ " + from.toString() + " ]  |  " + message.getBody());
+				if (message.getBody().length() > 1024) {
+					addNotification("New FILE From [ " + from.toString() + " ]");
+					receiveFile(message.getBody());
+				}
+				else {
+					addNotification("New Message From [ " + from.toString() + " ]  |  " + message.getBody());
+				}
 			});
 		});
 	}
@@ -1104,29 +1135,29 @@ XMPP
 		room_chat_listeners.put(multi_user_chat.getRoom().toString(), newListener);
 	}
 
-	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, ScrollPane scroll_messages, Label label_address) {
+	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, Button button_attach_file, ScrollPane scroll_messages, Label label_address) {
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
 		roster.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
 
 		roster.addRosterListener(new RosterListener() {
 			@Override
 			public void entriesAdded(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, label_address, roster));
 			}
 			@Override
 			public void entriesUpdated(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, label_address, roster));
 			}
 			@Override
 			public void entriesDeleted(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file, scroll_messages, label_address, roster));
 			}
 			@Override
 			public void presenceChanged(Presence presence) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file, scroll_messages, label_address, roster));
 			}
 		});
-		guiUpdateContacts(contents, layout_message_area, field_message, scroll_messages, label_address, roster);
+		guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, label_address, roster);
 	}
 
 	private void setContactListener() {
@@ -1216,12 +1247,59 @@ XMPP
 		}
 	}
 
-	public boolean sendFile(File file) {
-		return false;
+	public void sendFile(String to_jid, File file) {
+		try {
+			byte[] fileBytes = Files.readAllBytes(file.toPath());
+			String encodedFile = Base64.getEncoder().encodeToString(fileBytes);
+			sendChatMessage(to_jid, encodedFile);
+
+			System.out.println("File [ " + file.getAbsolutePath() + " ] sent to [ " + to_jid + " ]");
+		}
+		catch (Exception e) {
+			System.out.println("Error sending file [ " + file.getAbsolutePath() + " ] to [ " + to_jid + " ]  |  " + e.getMessage());
+			e.printStackTrace();
+			
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error sending file [ " + file.getAbsolutePath() + " ] to [ " + to_jid + " ]  |  " + e.getMessage());
+			alert.showAndWait();
+		}
 	}
 
-	public File receiveFile() {
-		return null;
+	public void receiveFile(String file_content) {
+		try {
+			byte[] decodedBytes = Base64.getDecoder().decode(file_content);
+			JFileChooser fileChooser = new JFileChooser();
+			fileChooser.setDialogTitle("Save file to:");
+			fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+
+			int userSelection = fileChooser.showSaveDialog(null);
+
+			if (userSelection == JFileChooser.APPROVE_OPTION) {
+				File fileToSave = fileChooser.getSelectedFile();
+				Path outputPath = fileToSave.toPath();
+
+				Files.createDirectories(outputPath.getParent());
+				Files.write(outputPath, decodedBytes);
+
+				System.out.println("File saved to [ " + outputPath.toString() + " ]");
+			}
+			else {
+				System.out.println("File discarded.");
+			}
+
+		}
+		catch (Exception e) {
+			System.out.println("Error al receiving/saving file  |  " + e.getMessage());
+			e.printStackTrace();
+
+			Alert alert = new Alert(AlertType.WARNING);
+			alert.setTitle("Warning");
+			alert.setHeaderText("Error");
+			alert.setContentText("Error al receiving/saving file  |  " + e.getMessage());
+			alert.showAndWait();
+		}
 	}
 
 	public static void main(String[] args) {
