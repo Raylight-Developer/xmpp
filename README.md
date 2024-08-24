@@ -46,7 +46,7 @@ mvn exec:java
 	```
 5) Participar en conversaciones grupales
 	```java
-	private boolean joinRoom(String room_jid); // TODO <Only works for the same user, add users: admin / server permissions>
+	private boolean joinRoom(String room_jid); // TODO <Only works for the same user> Potential problems: users not allowed to view; admin / room / server permissions
 	private boolean createRoom(String room_jid);
 	private boolean deleteRoom(String room_jid);
 	private void setupRoomMessageListener();
@@ -62,6 +62,6 @@ mvn exec:java
 	```
 8) Enviar/recibir archivos
 	```java
-	public void sendFile(String to_jid, File file);
-	public void receiveFile(String file_content);
+	public void sendFile(String to_jid, File file); // TODO send file format
+	public void receiveFile(String file_content); // TODO figure out file format
 	```
