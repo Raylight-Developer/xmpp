@@ -1,10 +1,14 @@
 Alejandro Martínez - 21430
 
+# Run
 ```bash
 mvn clean install
 mvn javadoc::javadoc
 mvn exec:java
 ```
+
+# Documentation
+[Docs](./peko_xmpp/apidocs/index.html)
 
 # Funciones
 ### Administración de cuentas

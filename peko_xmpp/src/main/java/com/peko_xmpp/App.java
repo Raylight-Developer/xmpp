@@ -17,7 +17,6 @@ import javafx.util.*;
 
 // Smack Lib
 import org.jivesoftware.smackx.iqregister.AccountManager;
-import org.jivesoftware.smackx.xdata.packet.*;
 import org.jivesoftware.smackx.xdata.form.*;
 import org.jivesoftware.smackx.muc.*;
 
@@ -68,6 +67,12 @@ public class App extends Application {
 	private Mode status = Mode.available;
 	private String status_message = "Pe↑ko↓ pe↑ko↓ pe↑ko↓ pe↑ko↓";
 
+/**
+ * Start UI
+ *
+ * @param stage Stage
+ * @throws IOException
+ */
 	@Override
 	public void start(Stage stage) throws IOException {
 		main_stage = stage;
@@ -96,6 +101,11 @@ public class App extends Application {
 GUI
 
 -----------------------------*/
+/**
+ * Load GUI for the Login Screen
+ *
+ * @param scene Scene
+ */
 	private void guiLoginScreen(Scene scene) {
 		TextField field_username = new TextField(username);
 		field_username.setPromptText("Username");
@@ -173,7 +183,11 @@ GUI
 			}
 		});
 	}
-
+/**
+ * Load GUI for the Home Screen
+ *
+ * @param scene Scene
+ */
 	private void guiHomeScreen(Scene scene) {
 		Label label = new Label("Welcome " + username + "  |  " + nickname);
 		label.setStyle("-fx-max-width: Infinity; -fx-font-size: 20px;");
@@ -294,7 +308,13 @@ GUI
 
 		guiChatScreen(scene, layout_main, label);
 	}
-
+/**
+ * Load GUI for the Chat Screen
+ *
+ * @param scene Scene
+ * @param container VBox to insert the Chat Contents
+ * @param label Label for the current screen
+ */
 	private void guiChatScreen(Scene scene, VBox container, Label label) {
 		container.getChildren().clear();
 		label.setText("Chat");
@@ -403,7 +423,13 @@ GUI
 
 		getContacts(layout_contacts_list_content, layout_message_area, field_message, button_attach_file, scroll_messages, label_address);
 	}
-
+/**
+ * Load GUI for the Group Chat Screen
+ *
+ * @param scene Scene
+ * @param container VBox to insert the Group Chat Contents
+ * @param label Label for the current screen
+ */
 	private void guiRoomScreen(Scene scene, VBox container, Label label) {
 		container.getChildren().clear();
 		label.setText("Group Chat");
@@ -499,7 +525,13 @@ GUI
 			}
 		});
 	}
-
+/**
+ * Load GUI for the Account Screen
+ *
+ * @param scene Scene
+ * @param container VBox to insert the Account Settings
+ * @param label Label for the current screen
+ */
 	private void guiAccountScreen(Scene scene, VBox container, Label label) {
 		container.getChildren().clear();
 		label.setText("My Account  |  " + username + "  |  " + nickname);
@@ -605,7 +637,13 @@ GUI
 			setStatus();
 		});
 	}
-
+/**
+ * Add GUI Chat Element for the Chat Screen
+ *
+ * @param sender_username String username of the one who sent the message
+ * @param message String containing the message
+ * @param contents VBox of where to insert the messages
+ */
 	private void guiAddIncomingMessage(String sender_username, String message, VBox contents) {
 		if (sender_username.equals(username) || sender_username.equals(nickname)) {
 			Label label_message = new Label(message);
@@ -637,7 +675,17 @@ GUI
 			contents.getChildren().add(layout_message);
 		}
 	}
-
+/**
+ * Add GUI Contact Element for the Contact Screen
+ *
+ * @param contents VBox of where to insert the contacts
+ * @param layout_message_area VBox of the messages to show/hide
+ * @param field_message TextArea of the messages to show/hide
+ * @param button_attach_file Button to show/hide
+ * @param scroll_messages ScrollPane of the messages to show/hide
+ * @param label_address Label to change on contact selected
+ * @param roster Roster roster to update the contacts with
+ */
 	private void guiUpdateContacts(VBox contents, VBox layout_message_area, TextArea field_message, Button button_attach_file, ScrollPane scroll_messages, Label label_address, Roster roster) {
 		contents.getChildren().clear();
 
@@ -737,7 +785,11 @@ GUI
 			});
 		}
 	}
-
+/**
+ * Add GUI Chat Element for Notifications
+ *
+ * @param value String text to add
+ */
 	private void addNotification(String value) {
 		Label label = new Label(value);
 		layout_notifications.getChildren().add(label);
@@ -763,6 +815,10 @@ GUI
 XMPP
 
 -----------------------------*/
+/**
+ * Setup Listeners and Managers
+ *
+ */
 	public void setup() {
 		setContactListener();
 		setStatus();
@@ -770,7 +826,11 @@ XMPP
 		multi_user_chat_manager = MultiUserChatManager.getInstanceFor(xmpp_connection);
 		setupChatMessageListener();
 	}
-
+/**
+ * SignUp to server
+ *
+ * @return boolean if succesful
+ */
 	public boolean signUp() {
 		try {
 			XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
@@ -827,7 +887,11 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * SignIn to server
+ *
+ * @return boolean if succesful
+ */
 	public boolean signIn() {
 		try {
 			XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
@@ -872,7 +936,11 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * SignOut from server
+ *
+ * @return boolean if succesful
+ */
 	public boolean signOut() {
 		try {
 			xmpp_connection.disconnect();
@@ -892,7 +960,11 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Delete Account from server
+ *
+ * @return boolean if succesful
+ */
 	public boolean deleteAccount() {
 		try {
 			AccountManager accountManager = AccountManager.getInstance(xmpp_connection);
@@ -915,7 +987,11 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Set Status Message for the user to the server
+ *
+ * @return boolean if succesful
+ */
 	public boolean setStatus() {
 		try {
 			Presence presence = PresenceBuilder.buildPresence()
@@ -933,7 +1009,14 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Send Chat message to a user
+ *
+ * @param to_user_jid String of target user
+ * @param message_body String of the message to send
+ * @return boolean if succesful
+ * @deprecated org.jivesoftware.smack.packet.Message is deprecated
+ */
 	public boolean sendChatMessage(String to_user_jid, String message_body) {
 		try {
 			ChatManager manager = ChatManager.getInstanceFor(xmpp_connection);
@@ -961,22 +1044,30 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Set and connect Chat Message Listener
+ *
+ */
 	private void setupChatMessageListener() {
 		chat_manager.addIncomingListener((from, message, chat) -> {
 			Platform.runLater(() -> {
-				chatMessages.add(new Pair<String,String>(from.toString(), message.getBody()));
 				if (message.getBody().length() > 1024) {
 					addNotification("New FILE From [ " + from.toString() + " ]");
 					receiveFile(message.getBody());
 				}
 				else {
+					chatMessages.add(new Pair<String,String>(from.toString(), message.getBody()));
 					addNotification("New Message From [ " + from.toString() + " ]  |  " + message.getBody());
 				}
 			});
 		});
 	}
-
+/**
+ * Join a chat room
+ *
+ * @param room_jid String of room ID
+ * @return boolean if succesful
+ */
 	private boolean joinRoom(String room_jid) {
 		try {
 			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
@@ -1020,7 +1111,12 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Create a chat room
+ *
+ * @param room_jid String of room ID
+ * @return boolean if succesful
+ */
 	private boolean createRoom(String room_jid) {
 		try {
 			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
@@ -1072,7 +1168,12 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Delete a chat room
+ *
+ * @param room_jid String of room ID
+ * @return boolean if succesful
+ */
 	public boolean deleteRoom(String room_jid) {
 		try {
 			EntityBareJid roomJid = JidCreate.entityBareFrom(room_jid);
@@ -1096,7 +1197,13 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Send message to a chat room
+ *
+ * @param room_jid String of room ID
+ * @param message_body String message
+ * @return boolean if succesful
+ */
 	public boolean sendRoomMessage(String to_room_jid, String message_body) {
 		try {
 			multi_user_chat.sendMessage(message_body);
@@ -1117,24 +1224,41 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Set and connect Chat Room Listener
+ *
+ */
 	private void setupRoomMessageListener() {
 		if (room_chat_listeners.containsKey(multi_user_chat.getRoom().toString())) {
 			multi_user_chat.removeMessageListener(room_chat_listeners.get(multi_user_chat.getRoom().toString()));
 		}
 		MessageListener newListener = message -> {
 			Platform.runLater(() -> {
-				roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
-				
 				if (message.getBody() != null && message.getFrom().getResourceOrEmpty().toString() != null) {
-					addNotification("New Group Message [ " + multi_user_chat.getRoom().toString() + " ] from [ " + message.getFrom().getResourceOrEmpty().toString() + " ]  |  " +  message.getBody());
+					if (message.getBody().length() > 1024) {
+						addNotification("New FILE From [ " + message.getFrom().getResourceOrEmpty().toString() + " ]");
+						receiveFile(message.getBody());
+					}
+					else {
+						roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
+						addNotification("New Group Message [ " + multi_user_chat.getRoom().toString() + " ] from [ " + message.getFrom().getResourceOrEmpty().toString() + " ]  |  " +  message.getBody());
+					}
 				}
-				});
+			});
 		};
 		multi_user_chat.addMessageListener(newListener);
 		room_chat_listeners.put(multi_user_chat.getRoom().toString(), newListener);
 	}
-
+/**
+ * Set and connect Contact Listener
+ *
+ * @param contents VBox of where to insert the contacts
+ * @param layout_message_area VBox of the messages to show/hide
+ * @param field_message TextArea of the messages to show/hide
+ * @param button_attach_file Button to show/hide
+ * @param scroll_messages ScrollPane of the messages to show/hide
+ * @param label_address Label to change on contact selected
+ */
 	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, Button button_attach_file, ScrollPane scroll_messages, Label label_address) {
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
 		roster.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
@@ -1159,7 +1283,10 @@ XMPP
 		});
 		guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, label_address, roster);
 	}
-
+/**
+ * Set and connect incoming Contact Request Listener
+ *
+ */
 	private void setContactListener() {
 		xmpp_connection.addAsyncStanzaListener(new StanzaListener() {
 			@Override
@@ -1175,7 +1302,7 @@ XMPP
 							xmpp_connection.sendStanza(subscribedPresence);
 							addContact(presence.getFrom().asBareJid().toString());
 							System.out.println("Accepted Contact Request [ " + presence.getFrom().asBareJid().toString() + " ]");
-							
+
 							addNotification("Accepted Contact Request [ " + presence.getFrom().asBareJid().toString() + " ]");
 						}
 						catch (Exception e) {
@@ -1193,7 +1320,12 @@ XMPP
 			}
 		}, new StanzaTypeFilter(Presence.class));
 	}
-
+/**
+ * Add contact
+ *
+ * @param user_jid String of user ID
+ * @return boolean if succesful
+ */
 	public boolean addContact(String user_jid) {
 		try {
 			Roster roster = Roster.getInstanceFor(xmpp_connection);
@@ -1222,7 +1354,12 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Remove contact
+ *
+ * @param user_jid String of user ID
+ * @return boolean if succesful
+ */
 	public boolean removeContact(String user_jid) {
 		try {
 			EntityBareJid jid = JidCreate.entityBareFrom(user_jid);
@@ -1246,7 +1383,12 @@ XMPP
 			return false;
 		}
 	}
-
+/**
+ * Send file to user/chat
+ *
+ * @param to_jid String of target ID
+ * @param file File
+ */
 	public void sendFile(String to_jid, File file) {
 		try {
 			byte[] fileBytes = Files.readAllBytes(file.toPath());
@@ -1266,7 +1408,11 @@ XMPP
 			alert.showAndWait();
 		}
 	}
-
+/**
+ * Receive file
+ *
+ * @param file_content String of the encoded file
+ */
 	public void receiveFile(String file_content) {
 		try {
 			byte[] decodedBytes = Base64.getDecoder().decode(file_content);
@@ -1301,7 +1447,6 @@ XMPP
 			alert.showAndWait();
 		}
 	}
-
 	public static void main(String[] args) {
 		launch(args);
 	}
