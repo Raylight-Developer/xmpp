@@ -42,6 +42,7 @@ import java.io.*;
 public class App extends Application {
 	private Stage main_stage;
 	private VBox layout_notifications;
+	private Label label_address;
 	private Button button_notifications;
 	private boolean notifications_shown;
 
@@ -348,7 +349,7 @@ GUI
 		Label label_messages = new Label("Chat");
 		label_messages.setStyle("-fx-max-width: Infinity;");
 
-		Label label_address = new Label("NONE" + user_domain);
+		label_address = new Label("NONE");
 		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
 
 		VBox layout_message_area = new VBox(10);
@@ -421,7 +422,7 @@ GUI
 			}
 		});
 
-		getContacts(layout_contacts_list_content, layout_message_area, field_message, button_attach_file, scroll_messages, label_address);
+		getContacts(layout_contacts_list_content, layout_message_area, field_message, button_attach_file, scroll_messages);
 	}
 /**
  * Load GUI for the Group Chat Screen
@@ -442,8 +443,8 @@ GUI
 		field_room_jid.setStyle("-fx-max-width: Infinity;");
 		field_room_jid.setAlignment(Pos.CENTER_RIGHT);
 
-		Label label_address = new Label(room_domain);
-		label_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
+		Label label_room_address = new Label(room_domain);
+		label_room_address.setStyle("-fx-max-width: Infinity; -fx-max-height: Infinity;");
 
 		Button button_join_room = new Button("Join Room");
 		button_join_room.setStyle("-fx-max-width: Infinity;");
@@ -474,7 +475,7 @@ GUI
 		field_message.setVisible(false);
 
 		HBox layout_message_header = new HBox(10);
-		layout_message_header.getChildren().addAll(field_room_jid, label_address, button_join_room, button_delete_room);
+		layout_message_header.getChildren().addAll(field_room_jid, label_room_address, button_join_room, button_delete_room);
 		HBox.setHgrow(field_room_jid, Priority.ALWAYS);
 
 		VBox layout_message = new VBox(10);
@@ -683,10 +684,9 @@ GUI
  * @param field_message TextArea of the messages to show/hide
  * @param button_attach_file Button to show/hide
  * @param scroll_messages ScrollPane of the messages to show/hide
- * @param label_address Label to change on contact selected
  * @param roster Roster roster to update the contacts with
  */
-	private void guiUpdateContacts(VBox contents, VBox layout_message_area, TextArea field_message, Button button_attach_file, ScrollPane scroll_messages, Label label_address, Roster roster) {
+	private void guiUpdateContacts(VBox contents, VBox layout_message_area, TextArea field_message, Button button_attach_file, ScrollPane scroll_messages, Roster roster) {
 		contents.getChildren().clear();
 
 		for (RosterEntry entry : roster.getEntries()) {
@@ -763,22 +763,16 @@ GUI
 				label_address.setText(user_id);
 
 				for (Pair<String,String> message: chatMessages) {
-					if (message.getKey().equals(user_id)  || message.getKey().equals(username)) {
-							guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
-					}
-					else {
-						System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + user_id + " ]  |  " + message.getValue());
+					if (!message.getKey().equals(username + user_domain)) {
+						guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
 					}
 				}
 
 				chatMessages.addListener((ListChangeListener<Pair<String, String>>) change -> {
 					layout_message_area.getChildren().clear();
 					for (Pair<String,String> message: chatMessages) {
-						if (message.getKey().equals(user_id) || message.getKey().equals(username)) {
-								guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
-						}
-						else {
-							System.out.println("Ignored Message from: [ " + message.getKey() + " ] != [ " + user_id + " ]  |  " + message.getValue());
+						if (!message.getKey().equals(username + user_domain)) {
+							guiAddIncomingMessage(message.getKey(), message.getValue(), layout_message_area);
 						}
 					}
 				});
@@ -1057,7 +1051,9 @@ XMPP
 				}
 				else {
 					chatMessages.add(new Pair<String,String>(from.toString(), message.getBody()));
-					addNotification("New Message From [ " + from.toString() + " ]  |  " + message.getBody());
+					if (from.toString() != username + user_domain && from.toString() != label_address.getText() + user_domain && from.toString() != label_address.getText() && from.toString() != username) {
+						addNotification("New Message From [ " + from.toString() + " ]  |  " + message.getBody());
+					}
 				}
 			});
 		});
@@ -1241,7 +1237,9 @@ XMPP
 					}
 					else {
 						roomMessages.add(new Pair<String,String>(message.getFrom().getResourceOrEmpty().toString(), message.getBody()));
-						addNotification("New Group Message [ " + multi_user_chat.getRoom().toString() + " ] from [ " + message.getFrom().getResourceOrEmpty().toString() + " ]  |  " +  message.getBody());
+						if (message.getFrom().getResourceOrEmpty().toString() != username + user_domain) {
+							addNotification("New Group Message [ " + multi_user_chat.getRoom().toString() + " ] from [ " + message.getFrom().getResourceOrEmpty().toString() + " ]  |  " +  message.getBody());
+						}
 					}
 				}
 			});
@@ -1259,29 +1257,29 @@ XMPP
  * @param scroll_messages ScrollPane of the messages to show/hide
  * @param label_address Label to change on contact selected
  */
-	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, Button button_attach_file, ScrollPane scroll_messages, Label label_address) {
+	private void getContacts(VBox contents, VBox layout_message_area, TextArea field_message, Button button_attach_file, ScrollPane scroll_messages) {
 		Roster roster = Roster.getInstanceFor(xmpp_connection);
 		roster.setSubscriptionMode(Roster.SubscriptionMode.accept_all);
 
 		roster.addRosterListener(new RosterListener() {
 			@Override
 			public void entriesAdded(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, label_address, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, roster));
 			}
 			@Override
 			public void entriesUpdated(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, label_address, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, roster));
 			}
 			@Override
 			public void entriesDeleted(Collection<Jid> addresses) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file, scroll_messages, label_address, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file, scroll_messages, roster));
 			}
 			@Override
 			public void presenceChanged(Presence presence) {
-				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file, scroll_messages, label_address, roster));
+				Platform.runLater(() -> guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file, scroll_messages, roster));
 			}
 		});
-		guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, label_address, roster);
+		guiUpdateContacts(contents, layout_message_area, field_message, button_attach_file,scroll_messages, roster);
 	}
 /**
  * Set and connect incoming Contact Request Listener
